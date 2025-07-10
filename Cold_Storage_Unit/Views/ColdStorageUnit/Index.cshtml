@@ -1,0 +1,242 @@
+﻿@{
+    ViewBag.Title = "Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+}
+@model Cold_Storage_Unit.Models.ColdStorageUnit
+<head>
+    <style>
+        .custom-shadow {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<div class="flex-fill p-3 border rounded bg-white w-95 m-lg-3 custom-shadow" style="height: 100px;">
+    <h4 class="fst-normal fw-bold">Overview</h4>
+</div>
+
+<div class="container-fluid w-90 m-lg-2 custom-shadow">
+
+    <!-- Main Content -->
+    <div class="flex-grow-1 overflow-auto p-2 bg-light rounded-1">
+        <div class="d-flex flex-column" style="height: 100vh;">
+            <!-- Top Container (Text) -->
+            <div class="flex-fill mb-3 p-3 border rounded bg-light">
+                <h4 class="fs-1 fw-bold">  <i class="bi bi-thermometer-half text-danger me-2"></i>Cold Storage Unit 1</h4>
+
+                <div class="row m-4">
+                    <!-- Left Column -->
+                    <div class="col-md-6">
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-thermometer-half text-danger me-2"></i>Temperature: <span id="temperature">@Model.Temperature</span> °C
+                        </p>
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-droplet text-primary me-2"></i>Humidity: <span id="humidity">@Model.Humidity</span> %
+                        </p>
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-lightning-charge-fill text-warning me-2"></i>CO₂: <span id="co2">@Model.Co2Level</span> ppm
+                        </p>
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-wind text-secondary me-2"></i>Fan Speed: <span id="fanspeed">@Model.FanSpeed</span> RPM
+                        </p>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="col-md-6">
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-hash text-info me-2"></i>Ripeness: <span id="ripeness">@Model.RipenessStage</span>
+                        </p>
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-door-closed-fill text-success me-2"></i>Door: <span id="door">@Model.DoorStatus</span>
+                        </p>
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-clock text-muted me-2"></i>Ethylene: <span id="ethylene">@Model.EthyleneLevel</span> ppm
+                        </p>
+                        <p class="mb-3 fw-bold text-black">
+                            <i class="bi bi-exclamation-circle-fill text-danger me-2"></i>LastUpdated: <span id="lastupdated">@Model.LastUpdated</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Bottom Container (Graph) -->
+                <div class="flex-fill p-3 border rounded bg-white">
+                    <h4>Environmental Trend</h4>
+                    <canvas id="envChart" height="80"></canvas>
+                </div>
+
+                <br />
+                @*<div class="flex-fill p-3 border rounded bg-white">
+
+                        <div class="d-flex justify-content-between">
+                            <p class="text-muted mb-2 fw-semibold w-100">Last Updated: @Model.LastUpdated</p>
+                            <div class="p-2 bg-primary text-white border rounded w-100 me-2 text-center">Action Plan</div>
+                            <div class="p-2 bg-success text-white border rounded w-100 me-2 text-center">Storage Advice</div>
+                            <div class="p-2 bg-warning text-dark border rounded w-100 text-center">Acknowlegement</div>
+                        </div>
+
+                    </div>*@
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let dataRows = [];
+    let currentIndex = 0;
+    let envChart;
+
+    // Show one row of data in the UI
+    function showRow(row) {
+        document.getElementById("temperature").textContent = row.Temperature;
+        document.getElementById("humidity").textContent = row.Humidity;
+        document.getElementById("co2").textContent = row.Co2Level;
+        document.getElementById("fanspeed").textContent = row.FanSpeed;
+        document.getElementById("ripeness").textContent = row.RipenessStage;
+        document.getElementById("door").textContent = row.DoorStatus;
+        document.getElementById("ethylene").textContent = row.EthyleneLevel;
+        document.getElementById("lastupdated").textContent = row.LastUpdated;
+
+        // Append new point to chart (like wave)
+        updateChart(row.Timestamp, row.Temperature, row.Humidity);
+    }
+
+    // Fetch all rows from the server
+    function fetchRows() {
+        fetch('/ColdStorageUnit/GetRecentRows')
+            .then(response => response.json())
+            .then(result => {
+                dataRows = result.reverse(); // oldest to newest
+                currentIndex = 0;
+                if (dataRows.length > 0) {
+                    showRow(dataRows[0]);
+                    startLoopingRows();
+                }
+            })
+            .catch(err => console.error('Error fetching data:', err));
+    }
+
+    // Loop through rows every 1 second
+    function startLoopingRows() {
+        setInterval(() => {
+            if (dataRows.length === 0) return;
+
+            showRow(dataRows[currentIndex]);
+            currentIndex = (currentIndex + 1) % dataRows.length;
+        }, 1000);
+    }
+
+    // Create the wave-style chart
+    function createWaveChart() {
+        const ctx = document.getElementById('envChart').getContext('2d');
+        envChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Temperature (°C)',
+                        data: [],
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        fill: true,
+                        tension: 0.5,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Humidity (%)',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        fill: true,
+                        tension: 0.5,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                animation: {
+                    duration: 300,
+                    easing: 'easeInOutSine'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Waveform: Temperature & Humidity',
+                        font: {
+                            size: 18
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Timestamp'
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Value'
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                            lineWidth: 1
+                        },
+                        ticks: {
+                            stepSize: 5
+                        }
+                    }
+                },
+                elements: {
+                    line: {
+                        cubicInterpolationMode: 'monotone'
+                    }
+                }
+            }
+        });
+    }
+
+    // Append new values to the chart
+    function updateChart(timestamp, temperature, humidity) {
+        const maxPoints = 20;
+
+        envChart.data.labels.push(timestamp);
+        envChart.data.datasets[0].data.push(temperature);
+        envChart.data.datasets[1].data.push(humidity);
+
+        if (envChart.data.labels.length > maxPoints) {
+            envChart.data.labels.shift();
+            envChart.data.datasets[0].data.shift();
+            envChart.data.datasets[1].data.shift();
+        }
+
+        envChart.update();
+    }
+
+    // Run everything on page load
+    window.onload = function () {
+        createWaveChart();
+        fetchRows();
+    };
+</script>
