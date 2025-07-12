@@ -28,6 +28,7 @@ namespace Cold_Storage_Unit.Controllers
                 {
                     latest = new ColdStorageUnit
                     {
+                        Id = Convert.ToInt32(reader["id"]),
                         Name = reader["Name"].ToString(),
                         Temperature = Convert.ToDouble(reader["Temperature"]),
                         Humidity = Convert.ToDouble(reader["Humidity"]),
@@ -88,6 +89,7 @@ namespace Cold_Storage_Unit.Controllers
                 {
                     rows.Add(new ColdStorageUnit
                     {
+                        Id = Convert.ToInt32(reader["id"]),
                         Name = reader["Name"].ToString(),
                         Temperature = Convert.ToDouble(reader["Temperature"]),
                         Humidity = Convert.ToDouble(reader["Humidity"]),
@@ -102,10 +104,7 @@ namespace Cold_Storage_Unit.Controllers
                     });
                 }
             }
-
             return Json(rows, JsonRequestBehavior.AllowGet);
         }
-
-
     }
 }

@@ -15,7 +15,7 @@
 <body class="bg-light">
     <div class="container d-flex align-items-center justify-content-center" style="height:100vh;">
         <div class="card shadow p-4" style="width: 350px;">
-            <h4 class="text-center mb-4">Login</h4>
+            <h4 class="text-center mb-4 text-danger text-capitalize">Login</h4>
             @using (Html.BeginForm("Login", "Account", FormMethod.Post))
             {
                 @Html.AntiForgeryToken()
