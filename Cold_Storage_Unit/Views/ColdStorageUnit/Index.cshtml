@@ -5,6 +5,8 @@
 }
 @model Cold_Storage_Unit.Models.ColdStorageUnit
 <head>
+    <link href="@Url.Content("~/Content/Site.css")" rel="stylesheet" />
+
     <style>
         .custom-shadow {
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -14,18 +16,18 @@
     </style>
 </head>
 <!--first div in main page -->
-<div class="container-fluid w-90 m-lg-2 custom-shadow border p-2 mt-5">
+<div class="container-fluid w-90 custom-shadow border p-2 mt-5">
     <h4 class="fst-normal fw-bold">Overview</h4>
     <h5>Monitor the real-time enviromental conditions of your banana cold storage units. Utilize AI powered insights for optimal presenvation.</h5>
 </div>
 <!--second div in main page -->
-<div class="container-fluid custom-shadow border p-2 mt-5 px-2 px-md-4">
+<div class="container-fluid custom-shadow border p-2 mt-4 px-2 px-md-4">
     <!-- Main Content -->
     <div class="flex-grow-1 overflow-auto p-2 bg-light rounded-1">
         <div class="d-flex flex-column border border-3 border-success m-3 rounded-3" style="height: 100vh;">
             <!-- Top Container (Text) -->
             <div class="flex-fill mb-3 p-3 rounded bg-light">
-                <h4 class="fs-1 fw-bold">  <i class="bi bi-thermometer-half text-danger me-2"></i>Cold Storage Unit 1</h4>
+                <h4 class="fs-1 fw-bold"><i class="bi bi-thermometer-half text-danger me-2"></i>Cold Storage Unit 1</h4>
 
                 <div class="row m-4">
                     <!-- Left Column -->
@@ -60,11 +62,12 @@
                         </p>
                     </div>
                 </div>
-
-                <!-- Bottom Container (Graph) -->
-                <div class="flex-fill p-3 border rounded bg-white">
+             
+                <div class="chart-wrapper flex-fill p-3 border rounded bg-white">
                     <h4>Environmental Trend</h4>
-                    <canvas id="envChart" height="80"></canvas>
+                    <div class="position-relative" style="width: 100%; height: auto;">
+                        <canvas id="envChart" style="width: 100%;" height="300"></canvas>
+                    </div>
                 </div>
                 <br />
             </div>
@@ -111,10 +114,11 @@
                     </div>
                 </div>
 
-                <!-- Unit 2 Chart -->
-                <div class="flex-fill p-3 border rounded bg-white">
+                <div class="chart-wrapper flex-fill p-3 border rounded bg-white">
                     <h4>Environmental Trend</h4>
-                    <canvas id="envChart2" height="80"></canvas>
+                    <div class="position-relative" style="width: 100%; height: auto;">
+                        <canvas id="envChart2" style="width: 100%;" height="300"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -252,6 +256,7 @@
     function getChartOptions(titleText) {
         return {
             responsive: true,
+              maintainAspectRatio: false,
             animation: {
                 duration: 300,
                 easing: 'easeInOutSine'
@@ -339,7 +344,6 @@
 
         envChart2.update();
     }
-
     // Run on page load
     window.onload = function () {
         createWaveChart();

@@ -4,7 +4,6 @@ body {
     padding: 0;
     overflow-x: hidden;
 }
-
 .navbar {
     position: fixed;
     top: 0;
@@ -45,7 +44,6 @@ body {
     .sidebar {
         display: none !important;
     }
-
     .content {
         margin-left: 0 !important;
         width: 100% !important;
@@ -103,7 +101,6 @@ body {
     color: white;
     padding-top: 1rem;
 }
-
 .sidebar a {
     color: white;
     text-decoration: none;
@@ -144,4 +141,3 @@ body {
         margin-top: 56px;
     }
 }
-

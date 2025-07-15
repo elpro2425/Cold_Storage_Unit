@@ -3,14 +3,13 @@ using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
-using System.Web.Http;
 using System.Web.Mvc;
 
 namespace Cold_Storage_Unit.Controllers
-{
+{  
     public class ColdStorageUnitApiController : Controller
     {
-            // GET api: ColdStorageUnit/GetAll
+           // GET api: ColdStorageUnit/GetAll
             [System.Web.Mvc.HttpGet]
             public ActionResult GetAll()
             {
@@ -44,7 +43,6 @@ namespace Cold_Storage_Unit.Controllers
                         });
                     }
                 }
-
                 // Return JSON result
                 return Json(units, JsonRequestBehavior.AllowGet);
             }
