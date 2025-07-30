@@ -14,11 +14,12 @@ namespace Cold_Storage_Unit.Models
         public double Co2Level { get; set; }
         public double EthyleneLevel { get; set; }
         public int FanSpeed { get; set; }
-        public string LastUpdated { get; set; }
-        public string Timestamp { get; set; }
-        public string HistoricalData { get; set; }
-        public string LastAlertAcknowledged { get; set; }
+        public string Hardwaredate { get; set; }
+        public string SystemDate { get; set; }
         public string AlertStatus { get; set; }
+        public string UnitName { get; set; }
+        public string Status { get; set; }
+
     }
 
 }

@@ -9,102 +9,327 @@ namespace Cold_Storage_Unit.Controllers
 {
     public class ColdStorageUnitController : Controller
     {
-        // GET: ColdStorageUnit
         public ActionResult Index()
         {
-            ColdStorageUnit latest = null;
-            List<string> timestamps = new List<string>();
-            List<double> temperatures = new List<double>();
-            List<double> humidities = new List<double>();
+            ColdStorageUnit latest1 = null;
+            ColdStorageUnit latest2 = null;
+
+            List<string> timestamps1 = new List<string>();
+            List<double> temperatures1 = new List<double>();
+            List<double> humidities1 = new List<double>();
+
+            List<string> timestamps2 = new List<string>();
+            List<double> temperatures2 = new List<double>();
+            List<double> humidities2 = new List<double>();
 
             using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
             {
                 conn.Open();
 
-                // Get latest for the current info
-                var cmd = new MySqlCommand("SELECT * FROM ColdStorageUnit ORDER BY Timestamp DESC LIMIT 1", conn);
-                var reader = cmd.ExecuteReader();
-                if (reader.Read())
+                // Latest for Unit 1
+                var cmd1 = new MySqlCommand("SELECT * FROM ColdStorageUnit1 ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') DESC LIMIT 1", conn);
+                var reader1 = cmd1.ExecuteReader();
+                if (reader1.Read())
                 {
-                    latest = new ColdStorageUnit
+                    latest1 = new ColdStorageUnit
                     {
-                        Id = Convert.ToInt32(reader["id"]),
-                        Name = reader["Name"].ToString(),
-                        Temperature = Convert.ToDouble(reader["Temperature"]),
-                        Humidity = Convert.ToDouble(reader["Humidity"]),
-                        RipenessStage = Convert.ToInt32(reader["RipenessStage"]),
-                        PowerStatus = reader["PowerStatus"].ToString(),
-                        DoorStatus = reader["DoorStatus"].ToString(),
-                        Co2Level = Convert.ToDouble(reader["Co2Level"]),
-                        EthyleneLevel = Convert.ToDouble(reader["EthyleneLevel"]),
-                        FanSpeed = Convert.ToInt32(reader["FanSpeed"]),
-                        LastUpdated = reader["LastUpdated"].ToString(),
-                        Timestamp = reader["Timestamp"].ToString(),
-                        HistoricalData = reader["HistoricalData"].ToString(),
-                        LastAlertAcknowledged = reader["LastAlertAcknowledged"].ToString(),
-                        AlertStatus = reader["AlertStatus"].ToString()
+                        Id = Convert.ToInt32(reader1["id"]),
+                        Name = reader1["Name"].ToString(),
+                        Temperature = Convert.ToDouble(reader1["Temperature"]),
+                        Humidity = Convert.ToDouble(reader1["Humidity"]),
+                        PowerStatus = reader1["PowerStatus"].ToString(),
+                        DoorStatus = reader1["DoorStatus"].ToString(),
+                        Co2Level = Convert.ToDouble(reader1["Co2Level"]),
+                        EthyleneLevel = Convert.ToDouble(reader1["EthyleneLevel"]),
+                        FanSpeed = Convert.ToInt32(reader1["FanSpeed"]),
+                        Hardwaredate = reader1["Hardwaredate"].ToString(),
+                        AlertStatus = reader1["AlertStatus"].ToString()
                     };
                 }
-                reader.Close();
+                reader1.Close();
 
-                // Get last 10 or 20 historical rows
-                var historyCmd = new MySqlCommand("SELECT Temperature, Humidity, Timestamp FROM ColdStorageUnit ORDER BY Timestamp DESC LIMIT 20", conn);
-                var historyReader = historyCmd.ExecuteReader();
-
-                while (historyReader.Read())
+                // 24 Hour History for Unit 1
+                var historyCmd1 = new MySqlCommand(@"
+SELECT *
+FROM ColdStorageUnit1
+WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')) - INTERVAL 1 DAY
+    FROM ColdStorageUnit1
+) AND (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r'))
+    FROM ColdStorageUnit1
+)
+ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
+                var historyReader1 = historyCmd1.ExecuteReader();
+                while (historyReader1.Read())
                 {
-                    temperatures.Insert(0, Convert.ToDouble(historyReader["Temperature"]));
-                    humidities.Insert(0, Convert.ToDouble(historyReader["Humidity"]));
-                    var timestampObj = historyReader["Timestamp"];
+                    temperatures1.Add(Convert.ToDouble(historyReader1["Temperature"]));
+                    humidities1.Add(Convert.ToDouble(historyReader1["Humidity"]));
 
+                    var timestampObj = historyReader1["Hardwaredate"];
                     if (timestampObj != DBNull.Value && DateTime.TryParse(timestampObj.ToString(), out DateTime parsedTimestamp))
-                    {
-                        timestamps.Insert(0, parsedTimestamp.ToString("HH:mm:ss"));
-                    }
+                        timestamps1.Add(parsedTimestamp.ToString("hh:mm:ss tt"));
                     else
-                    {
-                        timestamps.Insert(0, "Invalid");
-                    }
+                        timestamps1.Add("Invalid");
                 }
-            }
-            ViewBag.Timestamps = timestamps;
-            ViewBag.Temperatures = temperatures;
-            ViewBag.Humidities = humidities;
+                historyReader1.Close();
 
-            return View(latest);
+                // Latest for Unit 2
+                var cmd2 = new MySqlCommand("SELECT * FROM ColdStorageUnit2 ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') DESC LIMIT 1", conn);
+                var reader2 = cmd2.ExecuteReader();
+                if (reader2.Read())
+                {
+                    latest2 = new ColdStorageUnit
+                    {
+                        Id = Convert.ToInt32(reader2["id"]),
+                        Name = reader2["Name"].ToString(),
+                        Temperature = Convert.ToDouble(reader2["Temperature"]),
+                        Humidity = Convert.ToDouble(reader2["Humidity"]),
+                        PowerStatus = reader2["PowerStatus"].ToString(),
+                        DoorStatus = reader2["DoorStatus"].ToString(),
+                        Co2Level = Convert.ToDouble(reader2["Co2Level"]),
+                        EthyleneLevel = Convert.ToDouble(reader2["EthyleneLevel"]),
+                        FanSpeed = Convert.ToInt32(reader2["FanSpeed"]),
+                        Hardwaredate = reader2["Hardwaredate"].ToString(),
+                        AlertStatus = reader2["AlertStatus"].ToString()
+                    };
+                }
+                reader2.Close();
+
+                // 24 Hour History for Unit 2
+                var historyCmd2 = new MySqlCommand(@"
+SELECT *
+FROM ColdStorageUnit2
+WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')) - INTERVAL 1 DAY
+    FROM ColdStorageUnit2
+) AND (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r'))
+    FROM ColdStorageUnit2
+)
+ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
+                var historyReader2 = historyCmd2.ExecuteReader();
+                while (historyReader2.Read())
+                {
+                    temperatures2.Add(Convert.ToDouble(historyReader2["Temperature"]));
+                    humidities2.Add(Convert.ToDouble(historyReader2["Humidity"]));
+
+                    var timestampObj = historyReader2["Hardwaredate"];
+                    if (timestampObj != DBNull.Value && DateTime.TryParse(timestampObj.ToString(), out DateTime parsedTimestamp))
+                        timestamps2.Add(parsedTimestamp.ToString("hh:mm:ss tt"));
+                    else
+                        timestamps2.Add("Invalid");
+                }
+                historyReader2.Close();
+            }
+
+            ViewBag.Timestamps1 = timestamps1;
+            ViewBag.Temperatures1 = temperatures1;
+            ViewBag.Humidities1 = humidities1;
+
+            ViewBag.Timestamps2 = timestamps2;
+            ViewBag.Temperatures2 = temperatures2;
+            ViewBag.Humidities2 = humidities2;
+            ViewBag.Latest2 = latest2;
+
+            if (latest1 == null)
+                latest1 = new ColdStorageUnit();
+
+            return View(latest1);
         }
 
         [HttpGet]
-        public JsonResult GetRecentRows()
+        public JsonResult GetLatestRows()
         {
-            List<ColdStorageUnit> rows = new List<ColdStorageUnit>();
+            var result = new List<object>();
 
             using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
             {
                 conn.Open();
-                var cmd = new MySqlCommand("SELECT * FROM ColdStorageUnit ORDER BY Timestamp DESC LIMIT 20", conn);
-                var reader = cmd.ExecuteReader();
 
-                while (reader.Read())
+                // Step 1: Get all distinct UnitNames from DB
+                var unitNames = new List<string>();
+                var unitCmd = new MySqlCommand("SELECT DISTINCT UnitName FROM ReadTimeColdStorage", conn);
+                using (var reader = unitCmd.ExecuteReader())
                 {
-                    rows.Add(new ColdStorageUnit
+                    while (reader.Read())
                     {
-                        Id = Convert.ToInt32(reader["id"]),
-                        Name = reader["Name"].ToString(),
-                        Temperature = Convert.ToDouble(reader["Temperature"]),
-                        Humidity = Convert.ToDouble(reader["Humidity"]),
-                        RipenessStage = Convert.ToInt32(reader["RipenessStage"]),
-                        PowerStatus = reader["PowerStatus"].ToString(),
-                        DoorStatus = reader["DoorStatus"].ToString(),
-                        Co2Level = Convert.ToDouble(reader["Co2Level"]),
-                        EthyleneLevel = Convert.ToDouble(reader["EthyleneLevel"]),
-                        FanSpeed = Convert.ToInt32(reader["FanSpeed"]),
-                        LastUpdated = reader["LastUpdated"].ToString(),
-                        Timestamp = reader["Timestamp"].ToString()
-                    });
+                        unitNames.Add(reader["UnitName"].ToString());
+                    }
+                }
+
+                // Step 2: For each unit, get latest record and time gap
+                foreach (var unitName in unitNames)
+                {
+                    ColdStorageUnit latest = null;
+                    string timeGapStr = "N/A";
+
+                    // Get latest record
+                    var cmd = new MySqlCommand(@"
+                SELECT * FROM ReadTimeColdStorage 
+                WHERE UnitName = @unitName 
+                ORDER BY STR_TO_DATE(Hardwaredate, '%d/%m/%Y, %h:%i:%s %p') DESC 
+                LIMIT 1", conn);
+                    cmd.Parameters.AddWithValue("@unitName", unitName);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            latest = new ColdStorageUnit
+                            {
+                                Id = Convert.ToInt32(reader["id"]),
+                                Name = reader["Name"].ToString(),
+                                Temperature = Convert.ToDouble(reader["Temperature"]),
+                                Humidity = Convert.ToDouble(reader["Humidity"]),
+                                PowerStatus = reader["PowerStatus"].ToString(),
+                                DoorStatus = reader["DoorStatus"].ToString(),
+                                Co2Level = Convert.ToDouble(reader["Co2Level"]),
+                                EthyleneLevel = Convert.ToDouble(reader["EthyleneLevel"]),
+                                FanSpeed = Convert.ToInt32(reader["FanSpeed"]),
+                                Hardwaredate = reader["Hardwaredate"].ToString(),
+                                AlertStatus = reader["AlertStatus"].ToString(),
+                                UnitName = reader["UnitName"].ToString()
+                            };
+                        }
+                    }
+
+                    // Get time gap
+                    if (latest != null)
+                    {
+                        var gapCmd = new MySqlCommand(@"
+                    SELECT Hardwaredate FROM ReadTimeColdStorage 
+                    WHERE UnitName = @unitName 
+                    ORDER BY STR_TO_DATE(Hardwaredate, '%d/%m/%Y, %h:%i:%s %p') DESC 
+                    LIMIT 2", conn);
+                        gapCmd.Parameters.AddWithValue("@unitName", unitName);
+
+                        var timestamps = new List<DateTime>();
+                        using (var gapReader = gapCmd.ExecuteReader())
+                        {
+                            while (gapReader.Read())
+                            {
+                                if (DateTime.TryParse(gapReader["Hardwaredate"].ToString(), out DateTime dt))
+                                    timestamps.Add(dt);
+                            }
+                        }
+
+                        if (timestamps.Count == 2)
+                        {
+                            TimeSpan gap = timestamps[0] - timestamps[1];
+                            timeGapStr = $"{(int)gap.TotalMinutes} min {gap.Seconds} sec";
+                        }
+                    }
+                    result.Add(new { UnitName = unitName, Latest = latest, TimeGap = timeGapStr });
                 }
             }
-            return Json(rows, JsonRequestBehavior.AllowGet);
+            return Json(result, JsonRequestBehavior.AllowGet);
         }
+
+
+        private List<T> FilterByMinuteInterval<T>(List<T> fullList, List<string> timestamps, int intervalMinutes, out List<string> filteredTimestamps)
+        {
+            filteredTimestamps = new List<string>();
+            var filteredValues = new List<T>();
+
+            for (int i = 0; i < timestamps.Count; i++)
+            {
+                if (DateTime.TryParse(timestamps[i], out DateTime parsed))
+                {
+                    if (parsed.Minute % intervalMinutes == 0)
+                    {
+                        filteredTimestamps.Add(parsed.ToString("hh:mm tt"));
+                        filteredValues.Add(fullList[i]);
+                    }
+                }
+            }
+
+            return filteredValues;
+        }
+
+        [HttpGet]
+        public JsonResult GetChartData()
+        {
+            var timestamps1 = new List<string>();
+            var temperatures1 = new List<double>();
+            var humidities1 = new List<double>();
+
+            var timestamps2 = new List<string>();
+            var temperatures2 = new List<double>();
+            var humidities2 = new List<double>();
+
+            using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
+            {
+                conn.Open();
+
+                var historyCmd1 = new MySqlCommand(@"
+SELECT *
+FROM ColdStorageUnit1
+WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')) - INTERVAL 1 DAY
+    FROM ColdStorageUnit1
+) AND (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r'))
+    FROM ColdStorageUnit1
+)
+ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
+
+                var reader1 = historyCmd1.ExecuteReader();
+                while (reader1.Read())
+                {
+                    temperatures1.Add(Convert.ToDouble(reader1["Temperature"]));
+                    humidities1.Add(Convert.ToDouble(reader1["Humidity"]));
+                    var timestampObj = reader1["Hardwaredate"];
+                    if (timestampObj != DBNull.Value && DateTime.TryParse(timestampObj.ToString(), out DateTime parsedTimestamp))
+                        timestamps1.Add(parsedTimestamp.ToString("hh:mm:ss tt"));
+                    else
+                        timestamps1.Add("Invalid");
+                }
+                reader1.Close();
+
+                var historyCmd2 = new MySqlCommand(@"
+SELECT *
+FROM ColdStorageUnit2
+WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')) - INTERVAL 1 DAY
+    FROM ColdStorageUnit2
+) AND (
+    SELECT MAX(STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r'))
+    FROM ColdStorageUnit2
+)
+ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
+
+                var reader2 = historyCmd2.ExecuteReader();
+                while (reader2.Read())
+                {
+                    temperatures2.Add(Convert.ToDouble(reader2["Temperature"]));
+                    humidities2.Add(Convert.ToDouble(reader2["Humidity"]));
+                    var timestampObj = reader2["Hardwaredate"];
+                    if (timestampObj != DBNull.Value && DateTime.TryParse(timestampObj.ToString(), out DateTime parsedTimestamp))
+                        timestamps2.Add(parsedTimestamp.ToString("hh:mm:ss tt"));
+                    else
+                        timestamps2.Add("Invalid");
+                }
+                reader2.Close();
+            }
+
+            // Filter by 20-minute interval
+            temperatures1 = FilterByMinuteInterval(temperatures1, timestamps1, 20, out timestamps1);
+            humidities1 = FilterByMinuteInterval(humidities1, timestamps1, 20, out _); // timestamps1 already filtered
+
+            temperatures2 = FilterByMinuteInterval(temperatures2, timestamps2, 20, out timestamps2);
+            humidities2 = FilterByMinuteInterval(humidities2, timestamps2, 20, out _); // timestamps2 already filtered
+
+            return Json(new
+            {
+                timestamps1,
+                temperatures1,
+                humidities1,
+                timestamps2,
+                temperatures2,
+                humidities2
+            }, JsonRequestBehavior.AllowGet);
+        }
+
     }
 }

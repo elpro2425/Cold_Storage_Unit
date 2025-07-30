@@ -1,0 +1,330 @@
+﻿@model  Cold_Storage_Unit.Models.ReportsViewModel
+
+@{
+    ViewBag.Title = "Banana Cold Storage";
+}
+@{
+    var hasFilters = !string.IsNullOrEmpty(ViewBag.SelectedName as string) ||
+                     !string.IsNullOrEmpty(ViewBag.StartDate as string) ||
+                     !string.IsNullOrEmpty(ViewBag.EndDate as string);
+}
+
+@{
+    var hasDoorStatusFilters = !string.IsNullOrEmpty(ViewBag.Selectedstatus as string) ||
+                               !string.IsNullOrEmpty(ViewBag.StartDate1 as string) ||
+                               !string.IsNullOrEmpty(ViewBag.EndDate1 as string);
+}
+
+<div class="container mt-4 gap-1">
+    <div class="row">
+        <!-- Filter Form for Coldstorage mix Data-->
+        <div class="col-md-6">
+            <div class="card w-100">
+                <div class="card-header bg-info text-white fs-5">
+                    Sort  By Units
+                </div>
+                <div class="card-body">
+                    <form method="get" action="@Url.Action("Index", "Reports")">
+                        <!-- Row 1: Labels -->
+                        <div class="row mb-3">
+                            <!-- Name -->
+                            <div class="col-12 col-md-4 mb-2 mb-md-0">
+                                <label for="name" class="form-label"><strong>Name</strong></label>
+                                <select id="name" name="name" class="form-control">
+                                    <option value="">All</option>
+                                    @foreach (var item in ViewBag.Names as List<string>)
+                                    {
+                                        <option value="@item" @(item == (string)ViewBag.SelectedName ? "selected" : "")>@item</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- From Date -->
+                            <div class="col-12 col-md-4 mb-2 mb-md-0">
+                                <label for="startDate" class="form-label"><strong>From:</strong></label>
+                                <input type="date" id="startDate" name="startDate" value="@(ViewBag.StartDate ?? "")" class="form-control" />
+                            </div>
+
+                            <!-- To Date -->
+                            <div class="col-12 col-md-4">
+                                <label for="endDate" class="form-label"><strong>To:</strong></label>
+                                <input type="date" id="endDate" name="endDate" value="@(ViewBag.EndDate ?? "")" class="form-control" />
+                            </div>
+                        </div>
+
+
+                        <!-- Row 3: Buttons -->
+                        <div class="row">
+                            <div class="col-4">
+                                <button type="submit" class="btn btn-primary w-100" id="Coldstorage">
+                                    <i class="fas fa-filter"></i> Sort Data
+                                </button>
+                            </div>
+                            @if (Model.ColdStorageData != null && Model.ColdStorageData.Any())
+                            {
+                                <div class="col-4">
+                                    <a class="btn btn-warning w-100"
+                                       href="@Url.Action("GeneratePdfSummaryReport", "Reports", new { name = ViewBag.SelectedName, startDate = ViewBag.StartDate, endDate = ViewBag.EndDate })">
+                                        <i class="fas fa-file-pdf"></i> PDF
+                                    </a>
+                                </div>
+                                <div class="col-4">
+                                    <a class="btn btn-success w-100"
+                                       href="@Url.Action("GenerateExcelSummaryReport", "Reports", new { name = ViewBag.SelectedName, startDate = ViewBag.StartDate, endDate = ViewBag.EndDate })">
+                                        <i class="fas fa-file-excel"></i> Excel
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- === Second identical block for Door Step === -->
+        <div class="col-md-6">
+            <div class="card w-100">
+                <div class="card-header bg-info text-white fs-5">
+                    Sort  By Door Staus
+                </div>
+                <div class="card-body">
+                    <form method="get" action="@Url.Action("Index", "Reports")">
+                        <div class="row mb-3">
+                            <!-- Name / Status -->
+                            <div class="col-12 col-md-4 mb-2 mb-md-0">
+                                <label for="status" class="form-label"><strong>Name</strong></label>
+                                <select id="status" name="status" class="form-control">
+                                    <option value="">All</option>
+                                    @foreach (var status in ViewBag.StatusList as List<string>)
+                                    {
+                                        <option value="@status" @(status == (string)ViewBag.Selectedstatus ? "selected" : "")>@status</option>
+                                    }
+
+                                </select>
+                            </div>
+
+                            <!-- From Date -->
+                            <div class="col-12 col-md-4 mb-2 mb-md-0">
+                                <label for="startDate2" class="form-label"><strong>From:</strong></label>
+                                <input type="date" id="startDate2" name="startDate1" value="@(ViewBag.StartDate1 ?? "")" class="form-control" />
+                            </div>
+
+                            <!-- To Date -->
+                            <div class="col-12 col-md-4">
+                                <label for="endDate2" class="form-label"><strong>To:</strong></label>
+                                <input type="date" id="endDate2" name="endDate1" value="@(ViewBag.EndDate1 ?? "")" class="form-control" />
+                            </div>
+                        </div>
+
+
+                        <div class="row">
+                            <div class="col-4">
+                                <button type="submit" class="btn btn-primary w-100" id="Coldstorage">
+                                    <i class="fas fa-filter"></i> Sort Data
+                                </button>
+                            </div>
+                            @if (Model.DoorStatusData != null && Model.DoorStatusData.Any())
+                            {
+                                <div class="col-4">
+                                    <a class="btn btn-warning w-100"
+                                       href="@Url.Action("GenerateDoorStatusPdfReport", "Reports", new { status = ViewBag.Selectedstatus, startDate = ViewBag.StartDate1, endDate = ViewBag.EndDate1 })">
+
+                                        <i class="fas fa-file-pdf"></i> PDF
+                                    </a>
+                                </div>
+                                <div class="col-4">
+                                    <a class="btn btn-success w-100"
+                                       href="@Url.Action("GenerateDoorStatusExcelReport", "Reports", new { status = ViewBag.Selectedstatus, startDate = ViewBag.StartDate1, endDate = ViewBag.EndDate1 })">
+                                        <i class="fas fa-file-excel"></i> Excel
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- Summary Box -->
+        <div class="col-md-6 mt-4">
+            <div class="card w-100">
+                <div class="card-header bg-info text-white">
+                    Summary Metrics
+                </div>
+                <div class="card-body">
+                    @if (hasFilters && Model.ColdStorageData != null && Model.ColdStorageData.Any())
+                    {
+                        var avgTemp = Model.ColdStorageData.Average(x => x.Temperature);
+                        var minTemp = Model.ColdStorageData.Min(x => x.Temperature);
+                        var maxTemp = Model.ColdStorageData.Max(x => x.Temperature);
+
+                        var avgHum = Model.ColdStorageData.Average(x => x.Humidity);
+                        var minHum = Model.ColdStorageData.Min(x => x.Humidity);
+                        var maxHum = Model.ColdStorageData.Max(x => x.Humidity);
+
+                        var avgEth = Model.ColdStorageData.Average(x => x.EthyleneLevel);
+                        var minEth = Model.ColdStorageData.Min(x => x.EthyleneLevel);
+                        var maxEth = Model.ColdStorageData.Max(x => x.EthyleneLevel);
+
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th>Temperature (°C)</th>
+                                        <th>Humidity (%)</th>
+                                        <th>Ethylene (ppm)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Average</strong></td>
+                                        <td>@(Math.Truncate(avgTemp * 10) / 10)</td>
+                                        <td>@(Math.Truncate(avgHum * 10) / 10)</td>
+                                        <td>@(Math.Truncate(avgEth * 10) / 10)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Minimum</strong></td>
+                                        <td>@(Math.Truncate(minTemp * 10) / 10)</td>
+                                        <td>@(Math.Truncate(minHum * 10) / 10)</td>
+                                        <td>@(Math.Truncate(minEth * 10) / 10)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Maximum</strong></td>
+                                        <td>@(Math.Truncate(maxTemp * 10) / 10)</td>
+                                        <td>@(Math.Truncate(maxHum * 10) / 10)</td>
+                                        <td>@(Math.Truncate(maxEth * 10) / 10)</td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else if (hasFilters)
+                    {
+                        <div class="alert alert-warning">No data found for the selected filters.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive shadow p-1 rounded h-auto container mt-2">
+    <table class="table table-bordered table-striped mt-3" id="coldstorage">
+        <thead class="thead-dark">
+            <tr class="text-center">
+                <th>Id</th>
+                <th>Name</th>
+                <th>Temperature(°C)</th>
+                <th>Humidity(%)</th>
+                <th>PowerStatus</th>
+                <th>DoorStatus</th>
+                <th>CO₂Level<br /> (ppm)</th>
+                <th>Ethylene Level <br />(ppm)</th>
+                <th>FanSpeed</th>
+                <th>DateTime</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @if (hasFilters && Model.ColdStorageData != null && Model.ColdStorageData.Any())
+            {
+                int id = 1;
+                foreach (var row in Model.ColdStorageData)
+                {
+                    <tr class="text-center">
+                        <td>@id</td>
+                        <td>@row.Name</td>
+                        <td>@(Math.Truncate(row.Temperature * 10) / 10)</td>
+                        <td>@(Math.Truncate(row.Humidity * 10) / 10)</td>
+                        <td>@row.PowerStatus</td>
+                        <td>@row.DoorStatus</td>
+                        <td>@(Math.Truncate(row.Co2Level * 10) / 10)</td>
+                        <td>@row.EthyleneLevel.ToString("F2")</td>
+                        <td>@row.FanSpeed</td>
+                        <td>@row.Hardwaredate</td>
+                    </tr>
+                    id++;
+                }
+            }
+
+        </tbody>
+    </table>
+
+    <table class="table table-bordered table-striped mt-3" id="Doorstatus">
+        <thead class="thead-dark">
+            <tr class="text-center">
+                <th>Id</th>
+                <th>Unit Name</th>
+                <th>Status</th>
+                <th>DateTime</th>
+            </tr>
+        </thead>
+        <tbody>
+
+            @if (hasDoorStatusFilters && Model.DoorStatusData != null && Model.DoorStatusData.Any())
+            {
+                int serial = 1;
+                foreach (var row in Model.DoorStatusData)
+                {
+                    <tr class="text-center">
+                        <td>@serial</td>
+                        <td>@row.Unitname</td>
+                        <td>@row.Status</td>
+                        <td>@row.Hardwaredate</td>
+                    </tr>
+                    serial++;
+                }
+            }
+
+        </tbody>
+    </table>
+
+</div>
+
+<!--Script -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const startDateInput = document.getElementById("startDate");
+        const endDateInput = document.getElementById("endDate");
+
+        function setMinEndDate() {
+            if (startDateInput.value) {
+                endDateInput.min = startDateInput.value;
+                if (endDateInput.value && endDateInput.value < startDateInput.value) {
+                    endDateInput.value = startDateInput.value;
+                }
+            } else {
+                endDateInput.removeAttribute("min");
+            }
+        }
+
+        startDateInput.addEventListener("change", setMinEndDate);
+
+        // Trigger on load in case of existing value
+        setMinEndDate();
+    });
+</script>
+
+<!--Script for doorstatus dates-->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const startDate1 = document.getElementById("startDate2");
+        const endDate1 = document.getElementById("endDate2");
+
+        function setMinEndDate2() {
+            if (startDate1.value) {
+                endDate1.min = startDate1.value;
+                if (endDate1.value && endDate1.value < startDate1.value) {
+                    endDate1.value = startDate1.value;
+                }
+            } else {
+                endDate1.removeAttribute("min");
+            }
+        }
+
+        startDate1.addEventListener("change", setMinEndDate2);
+
+        // Trigger on page load
+        setMinEndDate2();
+    });
+</script>
