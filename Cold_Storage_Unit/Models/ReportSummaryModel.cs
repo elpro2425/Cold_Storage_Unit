@@ -7,20 +7,29 @@ namespace Cold_Storage_Unit.Models
 {
     public class ReportSummaryModel
     {
-        public double AvgTemp { get; set; }
-        public double MinTemp { get; set; }
-        public double MaxTemp { get; set; }
+        public List<ColdStorageUnit> Rows { get; set; }
+        public List<SensorSummary> Summaries { get; set; }
+        public string LineChartBase64 { get; set; }
+        public string BarChartBase64 { get; set; }
+        public string PieChartBase64 { get; set; }
 
+    }
+    public class SummaryRow
+    {
+        public string Name { get; set; }
+        public double AvgTemp { get; set; }
         public double AvgHumidity { get; set; }
-        public double MinHumidity { get; set; }
-        public double MaxHumidity { get; set; }
+        public double AvgCO2 { get; set; }
 
         public double AvgEthylene { get; set; }
-        public double MinEthylene { get; set; }
-        public double MaxEthylene { get; set; }
+    }
 
-        public int DoorOpenCount { get; set; }
-        public double EnergyUsedKWh { get; set; }
-
+    public class SensorSummary
+    {
+        public string Metric { get; set; }
+        public double Min { get; set; }
+        public double Max { get; set; }
+        public double Avg { get; set; }
+        public double Range => Max - Min;
     }
 }

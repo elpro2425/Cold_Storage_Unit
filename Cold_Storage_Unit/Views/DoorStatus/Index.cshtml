@@ -1,0 +1,121 @@
+﻿
+@{
+    ViewBag.Title = "Index";
+}
+
+@model List<Cold_Storage_Unit.Models.WeightRecord>
+
+
+@{
+    // For maintaining filter values after submit
+    int? selectedLineNo = ViewBag.SelectedLineNo as int?;
+    string startDate = ViewBag.StartDate as string;
+    string endDate = ViewBag.EndDate as string;
+}
+<div class="col-md-12">
+    <form method="get" action="@Url.Action("Index", "DoorStatus")
+" class="mb-3">
+        <div class="row">
+            <div class="col-md-4">
+                <label><strong>Line No</strong></label>
+                <input type="number" name="lineNo" value="@(selectedLineNo?.ToString() ?? "")" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label><strong>From</strong></label>
+                <input type="date" name="startDate" value="@(startDate ?? "")" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label><strong>To</strong></label>
+                <input type="date" name="endDate" value="@(endDate ?? "")" class="form-control" />
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Filter</button>
+
+                <a class="btn btn-warning"
+                   href="@Url.Action("GeneratePdfSummaryReport", new { lineNo = selectedLineNo, startDate = startDate, endDate = endDate })"
+                   target="_blank">
+                    <i class="fas fa-file-pdf"></i> View PDF
+                </a>
+
+                <a class="btn btn-success"
+                   href="@Url.Action("GeneratePdfSummaryReport", new { lineNo = selectedLineNo, startDate = startDate, endDate = endDate })">
+                    <i class="fas fa-download"></i> Download PDF
+                </a>
+            </div>
+        </div>
+    </form>
+    <div class="table-responsive">
+
+        <!-- Your table display here -->
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>SrNo</th>
+                    <th>Line No</th>
+                    <th>Weight</th>
+                    <th>Condition</th>
+                    <th>DateTime</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model != null && Model.Any())
+                {
+                    foreach (var item in Model)
+                    {
+                        <tr class="@(item.Weight >= 48 && item.Weight <= 50 ? "table-success" : "table-danger")">
+                            <td>@item.SrNo</td>
+                            <td>@item.LineNo</td>
+                            <td>@item.Weight.ToString("0.00")</td>
+                            <td>@item.Condition</td>
+                            <td>@item.DateTime</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="5" class="text-center">No data found.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+        $('#coldstorage').DataTable({
+            "pageLength": 10,
+            "lengthMenu": [5, 10, 25, 50],
+            "order": [], // Disable initial sort
+            "language": {
+                "search": "Search:"
+            }
+        });
+
+    });
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const startDateInput = document.getElementById("startDate");
+        const endDateInput = document.getElementById("endDate");
+
+        function setMinEndDate() {
+            if (startDateInput.value) {
+                endDateInput.min = startDateInput.value;
+                if (endDateInput.value && endDateInput.value < startDateInput.value) {
+                    endDateInput.value = startDateInput.value;
+                }
+            } else {
+                endDateInput.removeAttribute("min");
+            }
+        }
+
+        startDateInput.addEventListener("change", setMinEndDate);
+
+        // Trigger on load in case of existing value
+        setMinEndDate();
+    });
+</script>

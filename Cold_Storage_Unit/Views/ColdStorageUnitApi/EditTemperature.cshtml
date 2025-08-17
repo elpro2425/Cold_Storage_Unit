@@ -1,0 +1,207 @@
+﻿@model Cold_Storage_Unit.Models.Alertempareture
+
+@{
+    ViewBag.Title = "Manage Temperature Settings";
+    var unitNames = (SelectList)ViewBag.UnitNames ?? new SelectList(Enumerable.Empty<string>());
+    var categories = (SelectList)ViewBag.Categories ?? new SelectList(Enumerable.Empty<string>());
+}
+
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+<div class="container my-4">
+    <h2 class="mb-4">Temperature Settings</h2>
+
+    <!-- Filter Form -->
+    <form method="get" action="@Url.Action("EditTemperature", "ColdStorageUnitApi")" class="row g-3 align-items-center mb-4">
+        <div class="col-md-4">
+            <label for="unitName" class="form-label">Unit Name</label>
+            @Html.DropDownList("unitName", unitNames, "All Units", new { @class = "form-select", @id = "unitName", @onchange = "this.form.submit();" })
+        </div>
+        <div class="col-md-4">
+            <label for="category" class="form-label">Category</label>
+            @Html.DropDownList("category", categories, "All Categories", new { @class = "form-select", @id = "category", @onchange = "this.form.submit();" })
+        </div>
+        <!-- Add New Button -->
+        <div class="col-md-4 ">
+            <button id="btnAddNew" type="button" class="btn btn-success mt-4" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                Add New Record
+            </button>
+        </div>
+        <noscript>
+            <div class="col-auto mt-3">
+                <input type="submit" value="Filter" class="btn btn-primary" />
+            </div>
+        </noscript>
+    </form>
+
+    <!-- Data Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle text-center">
+            <thead class="table-light">
+                <tr>
+                    <th>Unit Name</th>
+                    <th>Category</th>
+                    <th>Threshold</th>
+                    <th>Message</th>
+                    <th>Enabled</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (ViewBag.AllSettings != null && ((List<Cold_Storage_Unit.Models.Alertempareture>)ViewBag.AllSettings).Count > 0)
+                {
+                    foreach (var item in (List<Cold_Storage_Unit.Models.Alertempareture>)ViewBag.AllSettings)
+                    {
+                        <tr>
+                            <td>@item.UnitName</td>
+                            <td>@item.Category</td>
+                            <td>@item.threshold</td>
+                            <td>@item.message_display</td>
+                            <td>@(item.enabled ? "Yes" : "No")</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning me-2" onclick="openEditModal('@item.UnitName', '@item.Category')">Edit</button>
+
+                                @using (Html.BeginForm("DeleteTemperature", "ColdStorageUnitApi", FormMethod.Post, new { onsubmit = "return confirm('Are you sure you want to delete this record?');", style = "display:inline;" }))
+                                {
+                                    @Html.AntiForgeryToken()
+                                    @Html.Hidden("unitName", item.UnitName)
+                                    @Html.Hidden("category", item.Category)
+                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                }
+                            </td>
+
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="6" class="text-center fst-italic">No records found.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+
+    <!-- Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settingsModalLabel">
+                        @(Model.Id > 0 ? "Edit Setting" : "Add New Setting")
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    @using (Html.BeginForm("UpdateTemperature", "ColdStorageUnitApi", FormMethod.Post, new { @class = "needs-validation", novalidate = "novalidate" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.HiddenFor(m => m.Id)
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Unit Name</label>
+                                @if (Model.Id > 0)
+                                {
+                                    @Html.DropDownListFor(m => m.UnitName, unitNames, new { @class = "form-select", @disabled = "disabled" })
+                                    @Html.HiddenFor(m => m.UnitName)
+                                }
+                                else
+                                {
+                                    @Html.TextBoxFor(m => m.UnitName, new { @class = "form-control", placeholder = "Enter new unit name", required = "required" })
+                                }
+                                @Html.ValidationMessageFor(m => m.UnitName, "", new { @class = "text-danger" })
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Category</label>
+                                @if (Model.Id > 0)
+                                {
+                                    @Html.DropDownListFor(m => m.Category, categories, new { @class = "form-select", @disabled = "disabled" })
+                                    @Html.HiddenFor(m => m.Category)
+                                }
+                                else
+                                {
+                                    @Html.TextBoxFor(m => m.Category, new { @class = "form-control", placeholder = "Enter new category", required = "required" })
+                                }
+                                @Html.ValidationMessageFor(m => m.Category, "", new { @class = "text-danger" })
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Threshold</label>
+                                @Html.TextBoxFor(m => m.threshold, new { @class = "form-control", type = "number", step = "any", required = "required" })
+                                @Html.ValidationMessageFor(m => m.threshold, "", new { @class = "text-danger" })
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Message Display</label>
+                                @Html.TextBoxFor(m => m.message_display, new { @class = "form-control" })
+                            </div>
+
+                            <div class="col-md-6 form-check" style="padding-top: 30px;">
+                                @Html.CheckBoxFor(m => m.enabled, new { @class = "form-check-input", id = "enabledCheck" })
+                                <label class="form-check-label" for="enabledCheck">Enabled</label>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Enabled Sensitivity</label>
+                                @Html.TextBoxFor(m => m.enabled_sensitivity, new { @class = "form-control" })
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Time In Minutes</label>
+                                @Html.TextBoxFor(m => m.TimeInMinutesFormatted, new { @class = "form-control", type = "time", step = "1" })
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Condition Trigger</label>
+                                @Html.TextBoxFor(m => m.Condition_Trigger, new { @class = "form-control" })
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Remarks</label>
+                                @Html.TextAreaFor(m => m.Remarks, 3, 50, new { @class = "form-control" })
+                            </div>
+                        </div>
+
+                        <div class="mt-4 text-end">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap & Script -->
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    function openEditModal(unitName, category) {
+        fetch(`@Url.Action("EditTemperature", "ColdStorageUnitApi")?unitName=${unitName}&category=${category}`)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const modalContent = doc.querySelector('#settingsModal .modal-content');
+
+                if (modalContent) {
+                    document.querySelector('#settingsModal .modal-content').innerHTML = modalContent.innerHTML;
+
+                    const editModal = new bootstrap.Modal(document.getElementById('settingsModal'));
+                    editModal.show();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading modal:', error);
+                alert('Failed to load edit form.');
+            });
+    }
+    </script>
+
+}

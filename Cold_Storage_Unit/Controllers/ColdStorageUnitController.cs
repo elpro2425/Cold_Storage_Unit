@@ -22,6 +22,10 @@ namespace Cold_Storage_Unit.Controllers
             List<double> temperatures2 = new List<double>();
             List<double> humidities2 = new List<double>();
 
+            // Declare alert lists here, OUTSIDE the using block:
+            List<Alert> latestAlertsUnit1 = new List<Alert>();
+            List<Alert> latestAlertsUnit2 = new List<Alert>();
+
             using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
             {
                 conn.Open();
@@ -96,6 +100,59 @@ ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
                 }
                 reader2.Close();
 
+
+                // Latest 5 alerts for Unit 1
+                var alertsCmd1 = new MySqlCommand(@"
+        SELECT * FROM Alerts
+WHERE UnitName = 'Unit 1'
+  AND STR_TO_DATE(Alert_Date, '%Y-%m-%d %H:%i:%s') >= NOW() - INTERVAL 1 DAY
+ORDER BY STR_TO_DATE(Alert_Date, '%Y-%m-%d %H:%i:%s') DESC", conn);
+
+                var alertsReader1 = alertsCmd1.ExecuteReader();
+                while (alertsReader1.Read())
+                {
+                    latestAlertsUnit1.Add(new Alert
+                    {
+                        ID = Convert.ToInt32(alertsReader1["ID"]),
+                        Alert_Name = alertsReader1["Alert_Name"].ToString(),
+                        Condition_Trigger = alertsReader1["Condition_Trigger"].ToString(),
+                        Severity = alertsReader1["Severity"].ToString(),
+                        Remarks = alertsReader1["Remarks"].ToString(),
+                        Alert_Date = alertsReader1["Alert_Date"].ToString(),
+                        UnitName = alertsReader1["UnitName"].ToString(),
+                        Actual_Value = Convert.ToDouble(alertsReader1["Actual_Value"])
+
+                    });
+                }
+                alertsReader1.Close();
+
+                // Latest 5 alerts for Unit 2
+                var alertsCmd2 = new MySqlCommand(@"
+       SELECT * FROM Alerts
+WHERE UnitName = 'Unit 2'
+  AND STR_TO_DATE(Alert_Date, '%Y-%m-%d %H:%i:%s') >= NOW() - INTERVAL 1 DAY
+ORDER BY STR_TO_DATE(Alert_Date, '%Y-%m-%d %H:%i:%s') DESC", conn);
+
+                var alertsReader2 = alertsCmd2.ExecuteReader();
+                while (alertsReader2.Read())
+                {
+                    latestAlertsUnit2.Add(new Alert
+                    {
+                        ID = Convert.ToInt32(alertsReader2["ID"]),
+                        Alert_Name = alertsReader2["Alert_Name"].ToString(),
+                        Condition_Trigger = alertsReader2["Condition_Trigger"].ToString(),
+                        Severity = alertsReader2["Severity"].ToString(),
+                        Remarks = alertsReader2["Remarks"].ToString(),
+                        Alert_Date = alertsReader2["Alert_Date"].ToString(),
+                        UnitName = alertsReader2["UnitName"].ToString(),
+                        Actual_Value = Convert.ToDouble(alertsReader2["Actual_Value"])
+
+                    });
+                }
+                alertsReader2.Close();
+
+
+
                 // 24 Hour History for Unit 2
                 var historyCmd2 = new MySqlCommand(@"
 SELECT *
@@ -123,6 +180,10 @@ ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
                 historyReader2.Close();
             }
 
+            ViewBag.LatestAlertsUnit1 = latestAlertsUnit1;
+            ViewBag.LatestAlertsUnit2 = latestAlertsUnit2;
+
+
             ViewBag.Timestamps1 = timestamps1;
             ViewBag.Temperatures1 = temperatures1;
             ViewBag.Humidities1 = humidities1;
@@ -137,6 +198,7 @@ ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
 
             return View(latest1);
         }
+
 
         [HttpGet]
         public JsonResult GetLatestRows()
@@ -225,7 +287,6 @@ ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
             }
             return Json(result, JsonRequestBehavior.AllowGet);
         }
-
 
         private List<T> FilterByMinuteInterval<T>(List<T> fullList, List<string> timestamps, int intervalMinutes, out List<string> filteredTimestamps)
         {
@@ -330,6 +391,5 @@ ORDER BY STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') ASC", conn);
                 humidities2
             }, JsonRequestBehavior.AllowGet);
         }
-
     }
 }

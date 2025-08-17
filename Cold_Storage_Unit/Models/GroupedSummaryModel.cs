@@ -21,4 +21,7 @@ namespace Cold_Storage_Unit.Models
         public double MaxEthylene { get; set; }
     }
 
+   
+
+
 }

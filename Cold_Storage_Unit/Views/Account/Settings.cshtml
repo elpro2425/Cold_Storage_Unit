@@ -1,0 +1,59 @@
+﻿@model Cold_Storage_Unit.Models.LoginViewModel
+
+<!-- Bootstrap CSS CDN (Add this in your _Layout.cshtml ideally) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8 col-sm-10">
+            <div class="card shadow-sm p-4">
+                <h2 class="mb-4 text-center text-primary">Edit Your Profile</h2>
+
+                @using (Html.BeginForm())
+                {
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Name, new { @class = "form-label" })
+                        @Html.TextBoxFor(m => m.Name, new { @class = "form-control", placeholder = "Enter your first name" })
+                        @Html.ValidationMessageFor(m => m.Name, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Surname, new { @class = "form-label" })
+                        @Html.TextBoxFor(m => m.Surname, new { @class = "form-control", placeholder = "Enter your surname" })
+                        @Html.ValidationMessageFor(m => m.Surname, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Email, new { @class = "form-label" })
+                        @Html.TextBoxFor(m => m.Email, new { @class = "form-control", type = "email", placeholder = "Enter your email" })
+                        @Html.ValidationMessageFor(m => m.Email, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.Date, new { @class = "form-label" })
+                        @Html.TextBoxFor(m => m.Date, new { @class = "form-control", type = "date" })
+                        @Html.ValidationMessageFor(m => m.Date, "", new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-4">
+                        @Html.LabelFor(m => m.Password, new { @class = "form-label" })
+                        @Html.PasswordFor(m => m.Password, new { @class = "form-control", placeholder = "Enter a new password" })
+                        @Html.ValidationMessageFor(m => m.Password, "", new { @class = "text-danger" })
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+                }
+
+                @if (TempData["Success"] != null)
+                {
+                    <div class="alert alert-success mt-4 text-center" role="alert">
+                        @TempData["Success"]
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Optional Bootstrap JS Bundle for some components (modals, etc) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

@@ -20,6 +20,8 @@ namespace Cold_Storage_Unit.Models
         public string UnitName { get; set; }
         public string Status { get; set; }
 
+    
     }
+
 
 }
