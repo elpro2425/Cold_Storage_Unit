@@ -1,0 +1,60 @@
+﻿<form id="updateForm">
+    <input type="text" id="UnitName" name="UnitName" readonly />
+    <input type="text" id="HighTemperature" name="HighTemperature" />
+    <input type="text" id="LowTemperature" name="LowTemperature" />
+    <input type="text" id="SensitivityHigh" name="SensitivityHigh" />
+    <input type="text" id="SensitivityLow" name="SensitivityLow" />
+    <button type="submit">Update</button>
+</form>
+
+<div id="alertMessages"></div>
+
+<script>
+    $("#updateForm").on("submit", function (e) {
+        e.preventDefault();
+
+        var unitData = {
+            UnitName: $("#UnitName").val(),
+            Name: "...", // You must collect the rest of the fields similarly
+            Temperature: ...,
+            Humidity: ...,
+            PowerStatus: ...,
+            DoorStatus: ...,
+            Co2Level: ...,
+            EthyleneLevel: ...,
+            FanSpeed: ...,
+            Hardwaredate: "...", // format as needed
+            AlertStatus: "..." // optional
+        };
+
+        $.ajax({
+            url: '/ColdStorageUnitApi/UpdateReadTimeColdStorage',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(unitData),
+            success: function (response) {
+                if (response.success) {
+                    // Populate the form with returned temperature data
+                    $("#HighTemperature").val(response.temperatureStatus.HighTemperature);
+                    $("#LowTemperature").val(response.temperatureStatus.LowTemperature);
+                    $("#SensitivityHigh").val(response.temperatureStatus.Sensitivityhigh);
+                    $("#SensitivityLow").val(response.temperatureStatus.Sensitivitylow);
+
+                    // Display alert messages if any
+                    var alerts = response.alerts;
+                    var alertHtml = "<ul>";
+                    for (var i = 0; i < alerts.length; i++) {
+                        alertHtml += `<li><strong>${alerts[i].AlertName}</strong>: ${alerts[i].Condition} - ${alerts[i].Severity} (${alerts[i].Remarks})</li>`;
+                    }
+                    alertHtml += "</ul>";
+                    $("#alertMessages").html(alertHtml);
+                } else {
+                    alert("Update failed: " + response.message);
+                }
+            },
+            error: function () {
+                alert("An error occurred while processing the request.");
+            }
+        });
+    });
+</script>

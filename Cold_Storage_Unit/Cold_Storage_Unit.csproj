@@ -237,12 +237,15 @@
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="Models\Alert.cs" />
+    <Compile Include="Models\Alertempareture.cs" />
     <Compile Include="Models\DoorStatus.cs" />
     <Compile Include="Models\GroupedSummaryModel.cs" />
     <Compile Include="Models\LoginViewModel.cs" />
     <Compile Include="Models\ReportSummaryModel.cs" />
     <Compile Include="Models\ReportsViewModel.cs" />
     <Compile Include="Models\SensorDataRow.cs" />
+    <Compile Include="Models\TemperatureViewModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -299,6 +302,9 @@
     <Content Include="Views\Reports\Index.cshtml" />
     <Content Include="Views\Account\_UserForm.cshtml" />
     <Content Include="Views\Account\ManageUsers.cshtml" />
+    <Content Include="Views\Account\Settings.cshtml" />
+    <Content Include="Views\Account\AlertTemapretureUpdate.cshtml" />
+    <Content Include="Views\ColdStorageUnitApi\EditTemperature.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

@@ -18,10 +18,9 @@ namespace Cold_Storage_Unit.Controllers
     public class ReportsController : Controller
     {
         //Datatable for ColdstorageUnit2
-
-        public ActionResult Index(
-       string name = null, string startDate = null, string endDate = null,
-       string status = null, string startDate1 = null, string endDate1 = null)
+        public ActionResult Index(string name = null, string startDate = null, string endDate = null,
+                      string status = null, string startDate1 = null, string endDate1 = null,
+                      string tableType = null)
 
         {
             var coldStorageData = GetFilteredColdStorageData(name, startDate, endDate);
@@ -42,10 +41,9 @@ namespace Cold_Storage_Unit.Controllers
                 ColdStorageData = coldStorageData,
                 DoorStatusData = doorStatusData
             };
-
+            ViewBag.TableType = tableType;
             return View(viewModel); // pass both data sets in one model
         }
-
         //Coldstorage Table Data
         private List<ColdStorageUnit> GetFilteredColdStorageData(string name, string startDate, string endDate)
         {
@@ -551,17 +549,10 @@ namespace Cold_Storage_Unit.Controllers
         public FileResult GenerateExcelSummaryReport(string name, string startDate, string endDate)
         {
             List<ColdStorageUnit> data = GetFilteredColdStorageData(name, startDate, endDate);
-
             IWorkbook workbook = new XSSFWorkbook();
-            ISheet sheet = workbook.CreateSheet("ColdStorageReport");
+            bool isAll = string.IsNullOrEmpty(name) || name.Trim().ToLower() == "all";
 
-            // Set column widths (2/6/4 layout)
-            sheet.SetColumnWidth(0, 10 * 256); // Logo col
-            sheet.SetColumnWidth(1, 10 * 256);
-            for (int i = 2; i <= 7; i++) sheet.SetColumnWidth(i, 18 * 256); // Center (title/subtitle)
-            for (int i = 8; i <= 11; i++) sheet.SetColumnWidth(i, 20 * 256); // Date section
-
-            // Create styles
+            // Common Styles
             ICellStyle titleStyle = workbook.CreateCellStyle();
             IFont titleFont = workbook.CreateFont();
             titleFont.FontHeightInPoints = 20;
@@ -579,239 +570,162 @@ namespace Cold_Storage_Unit.Controllers
             centerStyle.Alignment = HorizontalAlignment.Center;
             centerStyle.VerticalAlignment = VerticalAlignment.Center;
 
-            // --- Row 0: Logo + Title ---
-            IRow row0 = sheet.CreateRow(0);
-            row0.HeightInPoints = 80; // Reduced height
+            ICellStyle boldStyle = workbook.CreateCellStyle();
+            IFont boldFont = workbook.CreateFont();
+            boldFont.IsBold = true;
+            boldStyle.SetFont(boldFont);
+            boldStyle.Alignment = HorizontalAlignment.Center;
 
-            // Insert image in (0,0) to (1,1) and scale it
-            string imagePath = HostingEnvironment.MapPath("~/Images/logo.jpg");
-            if (System.IO.File.Exists(imagePath))
-            {
-                byte[] imageBytes = System.IO.File.ReadAllBytes(imagePath);
-                int pictureIdx = workbook.AddPicture(imageBytes, PictureType.PNG);
+            ICellStyle headerStyle = workbook.CreateCellStyle();
+            IFont headerFont = workbook.CreateFont();
+            headerFont.IsBold = true;
+            headerStyle.SetFont(headerFont);
+            headerStyle.Alignment = HorizontalAlignment.Center;
+            headerStyle.VerticalAlignment = VerticalAlignment.Center;
+            headerStyle.FillForegroundColor = IndexedColors.Yellow.Index;
+            headerStyle.FillPattern = FillPattern.SolidForeground;
+            headerStyle.BorderBottom = BorderStyle.Thin;
 
-                IDrawing drawing = sheet.CreateDrawingPatriarch();
-                IClientAnchor anchor = workbook.GetCreationHelper().CreateClientAnchor();
+            ICellStyle oneDecimalStyle = workbook.CreateCellStyle();
+            oneDecimalStyle.CloneStyleFrom(centerStyle);
+            oneDecimalStyle.DataFormat = workbook.CreateDataFormat().GetFormat("0.0");
 
-                // Place image from (0,0) to (1,1)
-                anchor.Col1 = 0;
-                anchor.Row1 = 1;
-                anchor.Col2 = 2;
-                anchor.Row2 = 3;
+            ICellStyle ethyleneStyle = workbook.CreateCellStyle();
+            ethyleneStyle.CloneStyleFrom(centerStyle);
+            ethyleneStyle.DataFormat = workbook.CreateDataFormat().GetFormat("0.00");
 
-                var picture = drawing.CreatePicture(anchor, pictureIdx);
-                picture.Resize(1.0); // Resize to 50% (both width and height)
-            }
-
-            // Title Cell
-            ICell titleCell = row0.CreateCell(2);
-            titleCell.SetCellValue("Banana Cold Storage");
-            titleCell.CellStyle = titleStyle;
-            sheet.AddMergedRegion(new CellRangeAddress(0, 0, 2, 7));
-
-            // Start Date
-            row0.CreateCell(8).SetCellValue("Start Date:");
-            row0.CreateCell(9).SetCellValue(startDate + " 00:00:00");
-
-            // --- Row 1: Subtitle + End Date ---
-            IRow row1 = sheet.CreateRow(1);
-            ICell subCell = row1.CreateCell(2);
-            subCell.SetCellValue($"Summary Report for {(string.IsNullOrEmpty(name) ? "All Units" : name)}");
-            subCell.CellStyle = subStyle;
-            sheet.AddMergedRegion(new CellRangeAddress(1, 1, 2, 7));
-
-            // Merge cells for visual spacing if needed (adjust columns as per design)
-            sheet.AddMergedRegion(new CellRangeAddress(2, 2, 2, 7));
-
-            row1.CreateCell(8).SetCellValue("End Date:");
-            row1.CreateCell(9).SetCellValue(endDate + " 23:59:59");
-
-            // --- Row 2: Generated Timestamp ---
-            IRow row2 = sheet.CreateRow(2);
-            row2.CreateCell(8).SetCellValue("Generated:");
-            row2.CreateCell(9).SetCellValue(DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
-
-            // --- Row 3: Horizontal Divider ---
-            IRow dividerRow = sheet.CreateRow(3);
-            for (int i = 0; i <= 11; i++)
-            {
-                ICell cell = dividerRow.CreateCell(i);
-                ICellStyle borderStyle = workbook.CreateCellStyle();
-                borderStyle.BorderBottom = BorderStyle.Medium;
-                cell.CellStyle = borderStyle;
-            }
-
-            if (data.Any())
-            {
-                double avgTemp = data.Average(x => x.Temperature);
-                double minTemp = data.Min(x => x.Temperature);
-                double maxTemp = data.Max(x => x.Temperature);
-
-                double avgHum = data.Average(x => x.Humidity);
-                double minHum = data.Min(x => x.Humidity);
-                double maxHum = data.Max(x => x.Humidity);
-
-                double avgEth = data.Average(x => x.EthyleneLevel);
-                double minEth = data.Min(x => x.EthyleneLevel);
-                double maxEth = data.Max(x => x.EthyleneLevel);
-
-                double avgCO2 = data.Average(x => x.Co2Level);
-                double minCO2 = data.Min(x => x.Co2Level);
-                double maxCO2 = data.Max(x => x.Co2Level);
-
-                // Create bold cell style
-                ICellStyle boldStyle = workbook.CreateCellStyle();
-                IFont boldFont = workbook.CreateFont();
-                boldFont.IsBold = true;
-                boldStyle.SetFont(boldFont);
-                boldStyle.Alignment = HorizontalAlignment.Center;
-
-                // Add header row
-                IRow metricHeader = sheet.CreateRow(4);
-                metricHeader.CreateCell(1).SetCellValue("Metric");
-                metricHeader.CreateCell(2).SetCellValue("Temperature (°C)");
-                metricHeader.CreateCell(3).SetCellValue("Humidity (%)");
-                metricHeader.CreateCell(4).SetCellValue("CO₂ (ppm)");
-                metricHeader.CreateCell(5).SetCellValue("Ethylene (ppm)");
-                for (int i = 1; i <= 5; i++) metricHeader.GetCell(i).CellStyle = boldStyle;
-
-                // Average row
-                IRow avgRow = sheet.CreateRow(5);
-                avgRow.CreateCell(1).SetCellValue("Average");
-                avgRow.CreateCell(2).SetCellValue(Math.Round(avgTemp, 1));
-                avgRow.CreateCell(3).SetCellValue(Math.Round(avgHum, 1));
-                avgRow.CreateCell(4).SetCellValue(Math.Round(avgCO2, 1));
-                avgRow.CreateCell(5).SetCellValue(Math.Round(avgEth, 1));
-
-                // Min row
-                IRow minRow = sheet.CreateRow(6);
-                minRow.CreateCell(1).SetCellValue("Minimum");
-                minRow.CreateCell(2).SetCellValue(Math.Round(minTemp, 1));
-                minRow.CreateCell(3).SetCellValue(Math.Round(minHum, 1));
-                minRow.CreateCell(4).SetCellValue(Math.Round(minCO2, 1));
-                minRow.CreateCell(5).SetCellValue(Math.Round(minEth, 1));
-
-                // Max row
-                IRow maxRow = sheet.CreateRow(7);
-                maxRow.CreateCell(1).SetCellValue("Maximum");
-                maxRow.CreateCell(2).SetCellValue(Math.Round(maxTemp, 1));
-                maxRow.CreateCell(3).SetCellValue(Math.Round(maxHum, 1));
-                maxRow.CreateCell(4).SetCellValue(Math.Round(maxCO2, 1));
-                maxRow.CreateCell(5).SetCellValue(Math.Round(maxEth, 1));
-            }
-            // --- Header Row (Row 3) ---
-
-            bool isAll = string.IsNullOrEmpty(name) || name.Trim().ToLower() == "all";
-
-            // Define headers conditionally
-            string[] headers = isAll
-                ? new[] { "S.No", "Unit Name", "Temperature (°C)", "Humidity (%)", "Power Status", "Door Status", "CO₂ Level (ppm)", "Ethylene Level (ppm)", "Fan Speed", "DateTime" }
-                : new[] { "S.No", "Temperature (°C)", "Humidity (%)", "Power Status", "Door Status", "CO₂ Level (ppm)", "Ethylene Level (ppm)", "Fan Speed", "DateTime" };
-
-            // Header row
-            IRow headerRow = sheet.CreateRow(8);
-            for (int i = 0; i < headers.Length; i++)
-            {
-                ICell cell = headerRow.CreateCell(i);
-                cell.SetCellValue(headers[i]);
-
-                ICellStyle headerStyle = workbook.CreateCellStyle();
-                IFont font = workbook.CreateFont();
-                font.IsBold = true;
-                headerStyle.SetFont(font);
-                headerStyle.Alignment = HorizontalAlignment.Center;
-                headerStyle.VerticalAlignment = VerticalAlignment.Center;
-                headerStyle.BorderBottom = BorderStyle.Thin;
-                headerStyle.FillForegroundColor = IndexedColors.Yellow.Index;
-                headerStyle.FillPattern = FillPattern.SolidForeground;
-
-                cell.CellStyle = headerStyle;
-            }
-
-
-
-            // --- Data Rows (Start from Row 4) ---
-            int rowIndex = 9;
-            int serialNo = 1;
-
-            foreach (var row in data)
-            {
-                IRow sheetRow = sheet.CreateRow(rowIndex++);
-                int colIndex = 0;
-
-                sheetRow.CreateCell(colIndex).SetCellValue(serialNo++);
-                colIndex++;
-
-                if (isAll)
-                {
-                    sheetRow.CreateCell(colIndex).SetCellValue(row.Name);
-                    colIndex++;
-                }
-
-                sheetRow.CreateCell(colIndex++).SetCellValue((double)row.Temperature);
-                sheetRow.CreateCell(colIndex++).SetCellValue((double)row.Humidity);
-                sheetRow.CreateCell(colIndex++).SetCellValue(row.PowerStatus);
-                sheetRow.CreateCell(colIndex++).SetCellValue(row.DoorStatus);
-                sheetRow.CreateCell(colIndex++).SetCellValue((double)row.Co2Level);
-                sheetRow.CreateCell(colIndex++).SetCellValue((double)row.EthyleneLevel);
-                sheetRow.CreateCell(colIndex++).SetCellValue(row.FanSpeed);
-                sheetRow.CreateCell(colIndex).SetCellValue(row.Hardwaredate);
-
-                for (int i = 0; i <= colIndex; i++)
-                {
-                    sheetRow.GetCell(i).CellStyle = centerStyle;
-                }
-            }
             if (isAll)
             {
                 var units = data.Select(d => d.Name).Distinct();
 
-                // Define a reusable header style for unit sheets
-                ICellStyle unitHeaderStyle = workbook.CreateCellStyle();
-                IFont unitHeaderFont = workbook.CreateFont();
-                unitHeaderFont.IsBold = true;
-                unitHeaderStyle.SetFont(unitHeaderFont);
-                unitHeaderStyle.Alignment = HorizontalAlignment.Center;
-                unitHeaderStyle.VerticalAlignment = VerticalAlignment.Center;
-                unitHeaderStyle.FillForegroundColor = IndexedColors.Grey25Percent.Index;
-                unitHeaderStyle.FillPattern = FillPattern.SolidForeground;
-
                 foreach (var unit in units)
                 {
                     var unitData = data.Where(d => d.Name == unit).ToList();
-                    ISheet unitSheet = workbook.CreateSheet(unit);
+                    ISheet sheet = workbook.CreateSheet(unit);
 
-                    // Create header row
-                    IRow header = unitSheet.CreateRow(0);
+                    // Set column widths
+                    sheet.SetColumnWidth(0, 10 * 256);
+                    sheet.SetColumnWidth(1, 10 * 256);
+                    for (int i = 2; i <= 7; i++) sheet.SetColumnWidth(i, 18 * 256);
+                    for (int i = 8; i <= 11; i++) sheet.SetColumnWidth(i, 20 * 256);
+
+                    // --- Row 0: Logo + Title ---
+                    IRow row0 = sheet.CreateRow(0);
+                    row0.HeightInPoints = 80;
+
+                    string imagePath = HostingEnvironment.MapPath("~/Images/logo.jpg");
+                    if (System.IO.File.Exists(imagePath))
+                    {
+                        byte[] imageBytes = System.IO.File.ReadAllBytes(imagePath);
+                        int pictureIdx = workbook.AddPicture(imageBytes, PictureType.PNG);
+                        IDrawing drawing = sheet.CreateDrawingPatriarch();
+                        IClientAnchor anchor = workbook.GetCreationHelper().CreateClientAnchor();
+                        anchor.Col1 = 0; anchor.Row1 = 1; anchor.Col2 = 2; anchor.Row2 = 3;
+                        drawing.CreatePicture(anchor, pictureIdx).Resize(1.0);
+                    }
+
+                    ICell titleCell = row0.CreateCell(2);
+                    titleCell.SetCellValue("Banana Cold Storage");
+                    titleCell.CellStyle = titleStyle;
+                    sheet.AddMergedRegion(new CellRangeAddress(0, 0, 2, 7));
+
+                    row0.CreateCell(8).SetCellValue("Start Date:");
+                    row0.CreateCell(9).SetCellValue(startDate + " 00:00:00");
+
+                    // --- Row 1: Subtitle + End Date ---
+                    IRow row1 = sheet.CreateRow(1);
+                    ICell subCell = row1.CreateCell(2);
+                    subCell.SetCellValue($"Summary Report for {unit}");
+                    subCell.CellStyle = subStyle;
+                    sheet.AddMergedRegion(new CellRangeAddress(1, 1, 2, 7));
+                    row1.CreateCell(8).SetCellValue("End Date:");
+                    row1.CreateCell(9).SetCellValue(endDate + " 23:59:59");
+
+                    // --- Row 2: Generated Date ---
+                    IRow row2 = sheet.CreateRow(2);
+                    row2.CreateCell(8).SetCellValue("Generated:");
+                    row2.CreateCell(9).SetCellValue(DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
+
+                    // --- Row 3: Divider ---
+                    IRow dividerRow = sheet.CreateRow(3);
+                    for (int i = 0; i <= 11; i++)
+                    {
+                        ICell cell = dividerRow.CreateCell(i);
+                        ICellStyle borderStyle = workbook.CreateCellStyle();
+                        borderStyle.BorderBottom = BorderStyle.Medium;
+                        cell.CellStyle = borderStyle;
+                    }
+
+                    // --- Row 4–7: Summary rows ---
+                    if (unitData.Any())
+                    {
+                        double avgTemp = unitData.Average(x => x.Temperature);
+                        double minTemp = unitData.Min(x => x.Temperature);
+                        double maxTemp = unitData.Max(x => x.Temperature);
+
+                        double avgHum = unitData.Average(x => x.Humidity);
+                        double minHum = unitData.Min(x => x.Humidity);
+                        double maxHum = unitData.Max(x => x.Humidity);
+
+                        double avgEth = unitData.Average(x => x.EthyleneLevel);
+                        double minEth = unitData.Min(x => x.EthyleneLevel);
+                        double maxEth = unitData.Max(x => x.EthyleneLevel);
+
+                        double avgCO2 = unitData.Average(x => x.Co2Level);
+                        double minCO2 = unitData.Min(x => x.Co2Level);
+                        double maxCO2 = unitData.Max(x => x.Co2Level);
+
+                        IRow metricHeader = sheet.CreateRow(4);
+                        metricHeader.CreateCell(1).SetCellValue("Metric");
+                        metricHeader.CreateCell(2).SetCellValue("Temperature (°C)");
+                        metricHeader.CreateCell(3).SetCellValue("Humidity (%)");
+                        metricHeader.CreateCell(4).SetCellValue("CO₂ (ppm)");
+                        metricHeader.CreateCell(5).SetCellValue("Ethylene (ppm)");
+                        for (int i = 1; i <= 5; i++) metricHeader.GetCell(i).CellStyle = boldStyle;
+
+                        IRow avgRow = sheet.CreateRow(5);
+                        avgRow.CreateCell(1).SetCellValue("Average");
+                        avgRow.CreateCell(2).SetCellValue(Math.Round(avgTemp, 1));
+                        avgRow.CreateCell(3).SetCellValue(Math.Round(avgHum, 1));
+                        avgRow.CreateCell(4).SetCellValue(Math.Round(avgCO2, 1));
+                        avgRow.CreateCell(5).SetCellValue(Math.Round(avgEth, 1));
+
+                        IRow minRow = sheet.CreateRow(6);
+                        minRow.CreateCell(1).SetCellValue("Minimum");
+                        minRow.CreateCell(2).SetCellValue(Math.Round(minTemp, 1));
+                        minRow.CreateCell(3).SetCellValue(Math.Round(minHum, 1));
+                        minRow.CreateCell(4).SetCellValue(Math.Round(minCO2, 1));
+                        minRow.CreateCell(5).SetCellValue(Math.Round(minEth, 1));
+
+                        IRow maxRow = sheet.CreateRow(7);
+                        maxRow.CreateCell(1).SetCellValue("Maximum");
+                        maxRow.CreateCell(2).SetCellValue(Math.Round(maxTemp, 1));
+                        maxRow.CreateCell(3).SetCellValue(Math.Round(maxHum, 1));
+                        maxRow.CreateCell(4).SetCellValue(Math.Round(maxCO2, 1));
+                        maxRow.CreateCell(5).SetCellValue(Math.Round(maxEth, 1));
+                    }
+
+                    // --- Row 8: Headers ---
+                    IRow header = sheet.CreateRow(8);
                     string[] unitHeaders = { "S.No", "Temperature (°C)", "Humidity (%)", "Power Status", "Door Status", "CO₂ Level (ppm)", "Ethylene Level (ppm)", "Fan Speed", "DateTime" };
-
                     for (int i = 0; i < unitHeaders.Length; i++)
                     {
                         ICell cell = header.CreateCell(i);
                         cell.SetCellValue(unitHeaders[i]);
-                        cell.CellStyle = unitHeaderStyle;  // ✅ Apply new header style
+                        cell.CellStyle = headerStyle;
                     }
 
-                    int unitRowIdx = 1;
+                    // --- Row 9+: Data ---
+                    int rowIdx = 9;
                     int sn = 1;
-                    // Create numeric format style for 1 decimal
-                    ICellStyle oneDecimalStyle = workbook.CreateCellStyle();
-                    oneDecimalStyle.CloneStyleFrom(centerStyle); // inherit center alignment etc.
-                    IDataFormat dataFormatCustom = workbook.CreateDataFormat();
-                    oneDecimalStyle.DataFormat = dataFormatCustom.GetFormat("0.0");
-
-                    // Ethylene should keep default (full) precision
-                    ICellStyle ethyleneStyle = workbook.CreateCellStyle();
-                    ethyleneStyle.CloneStyleFrom(centerStyle);
-                    ethyleneStyle.DataFormat = dataFormatCustom.GetFormat("0.00"); // or leave as is
 
                     foreach (var item in unitData)
                     {
-                        IRow r = unitSheet.CreateRow(unitRowIdx++);
+                        IRow r = sheet.CreateRow(rowIdx++);
                         r.CreateCell(0).SetCellValue(sn++);
                         r.GetCell(0).CellStyle = centerStyle;
 
-                        r.CreateCell(1).SetCellValue(Math.Round((double)item.Temperature, 1)); // 1 decimal
+                        r.CreateCell(1).SetCellValue(Math.Round((double)item.Temperature, 1));
                         r.GetCell(1).CellStyle = oneDecimalStyle;
 
                         r.CreateCell(2).SetCellValue(Math.Round((double)item.Humidity, 1));
@@ -836,15 +750,12 @@ namespace Cold_Storage_Unit.Controllers
                         r.GetCell(8).CellStyle = centerStyle;
                     }
 
-
-                    // (Optional) Auto-size columns for better display
                     for (int col = 0; col < unitHeaders.Length; col++)
-                        unitSheet.AutoSizeColumn(col);
+                        sheet.AutoSizeColumn(col);
                 }
             }
 
-
-            // --- Final Output ---
+            // Export
             using (var stream = new MemoryStream())
             {
                 workbook.Write(stream);
@@ -994,10 +905,26 @@ namespace Cold_Storage_Unit.Controllers
             centerStyle.VerticalAlignment = VerticalAlignment.Center;
 
             // --- Row 0: Logo + Title ---
-            IRow row0 = sheet.CreateRow(0);
-            row0.HeightInPoints = 70; // Reduced height
+            //IRow row0 = sheet.CreateRow(0);
+            //row0.HeightInPoints = 70; // Reduced height
 
-            // Insert image in (0,0) to (1,1) and scale it
+            // --- Set column widths ---
+            // Layout: [0-1]: Logo (narrow), [2-5]: Title+Subtitle, [6-7]: spacing buffer, [8-9]: Dates
+            sheet.SetColumnWidth(0, 9 * 256);   // Logo column
+            sheet.SetColumnWidth(1, 9 * 256);
+            sheet.SetColumnWidth(2, 14 * 256);  // Title start
+            sheet.SetColumnWidth(3, 14 * 256);
+            sheet.SetColumnWidth(4, 14 * 256);
+            sheet.SetColumnWidth(5, 14 * 256);  // Title end
+            sheet.SetColumnWidth(6, 5 * 256);   // Buffer
+            sheet.SetColumnWidth(7, 5 * 256);
+            sheet.SetColumnWidth(8, 12 * 256);  // Start/End/Generated label
+            sheet.SetColumnWidth(9, 20 * 256);  // Start/End/Generated value
+
+            // --- Row 0: Logo + Title ---
+            IRow row0 = sheet.CreateRow(0);
+            row0.HeightInPoints = 80;
+
             string imagePath = HostingEnvironment.MapPath("~/Images/logo.jpg");
             if (System.IO.File.Exists(imagePath))
             {
@@ -1006,25 +933,20 @@ namespace Cold_Storage_Unit.Controllers
 
                 IDrawing drawing = sheet.CreateDrawingPatriarch();
                 IClientAnchor anchor = workbook.GetCreationHelper().CreateClientAnchor();
-
-                // Place image from (0,0) to (1,1)
                 anchor.Col1 = 0;
                 anchor.Row1 = 1;
                 anchor.Col2 = 2;
                 anchor.Row2 = 2;
-
-                var picture = drawing.CreatePicture(anchor, pictureIdx);
-                picture.Resize(1.4); // Resize to 90% (both width and height)
+                drawing.CreatePicture(anchor, pictureIdx).Resize(1.4); // 90% size
             }
 
-
-            // Title Cell
+            // Title Cell (reduced width span: cols 2–5)
             ICell titleCell = row0.CreateCell(2);
             titleCell.SetCellValue("Banana Cold Storage");
             titleCell.CellStyle = titleStyle;
-            sheet.AddMergedRegion(new CellRangeAddress(0, 0, 2, 7));
+            sheet.AddMergedRegion(new CellRangeAddress(0, 0, 2, 5));
 
-            // Start Date
+            // Start Date (cols 8-9)
             row0.CreateCell(8).SetCellValue("Start Date:");
             row0.CreateCell(9).SetCellValue(startDate + " 00:00:00");
 
@@ -1033,23 +955,23 @@ namespace Cold_Storage_Unit.Controllers
             ICell subCell = row1.CreateCell(2);
             subCell.SetCellValue($"Summary Report for {(string.IsNullOrEmpty(status) ? "All Units" : status)}");
             subCell.CellStyle = subStyle;
-            sheet.AddMergedRegion(new CellRangeAddress(1, 1, 2, 7));
+            sheet.AddMergedRegion(new CellRangeAddress(1, 1, 2, 5));
 
-
-            // Merge cells for visual spacing if needed (adjust columns as per design)
-            sheet.AddMergedRegion(new CellRangeAddress(2, 2, 2, 7));
-
+            // End Date
             row1.CreateCell(8).SetCellValue("End Date:");
             row1.CreateCell(9).SetCellValue(endDate + " 23:59:59");
 
-            // --- Row 2: Generated Timestamp ---
+            // --- Row 2: Generated Date ---
             IRow row2 = sheet.CreateRow(2);
             row2.CreateCell(8).SetCellValue("Generated:");
             row2.CreateCell(9).SetCellValue(DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
 
-            // --- Row 3: Horizontal Divider ---
+            // --- Row 3: (optional spacer or empty) ---
+            // (you can skip or use for notes)
+
+            // --- Row 4: Horizontal Divider ---
             IRow dividerRow = sheet.CreateRow(4);
-            for (int i = 0; i <= 11; i++)
+            for (int i = 0; i <= 9; i++)
             {
                 ICell cell = dividerRow.CreateCell(i);
                 ICellStyle borderStyle = workbook.CreateCellStyle();
