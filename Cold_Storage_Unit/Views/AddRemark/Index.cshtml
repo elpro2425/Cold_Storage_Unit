@@ -1,0 +1,121 @@
+﻿@{
+    ViewBag.Title = "Manage Remarks";
+}
+
+@* Link to Bootstrap CSS *@
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+<div class="container mt-4">
+    <!-- Add New Remark Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Add New Remark</h3>
+        </div>
+        <div class="card-body">
+            <form method="post" action="@Url.Action("Add")">
+                <div class="form-group">
+                    <label for="category">Category:</label>
+                    <select id="category" name="category" class="form-control" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Temperature">Temperature</option>
+                        <option value="Humidity">Humidity</option>
+                        <option value="CO2">CO2</option>
+                        <option value="Ethylene">Ethylene</option>
+                        <option value="Fan">Fan</option>
+                        <option value="Door">Door</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="remarkText">Remark Text:</label>
+                    <textarea id="remarkText" name="remarkText" class="form-control" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Add Remark</button>
+            </form>
+        </div>
+    </div>
+
+    <hr />
+
+    <!-- Remarks Table (View All Remarks) -->
+    <h3>Remarks List</h3>
+    @*<form method="get" action="@Url.Action("Index")" class="form-inline mb-3">
+            <label for="category" class="mr-2">Filter by Category:</label>
+            <input type="text" id="category" name="category" class="form-control mr-2" value="@ViewBag.FilterCategory" placeholder="Enter category" />
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </form>*@
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Remark</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var remark in Model)
+            {
+                <tr>
+                    <td>@remark.Category</td>
+                    <td>@remark.RemarkText</td>
+                    <td>
+                        <!-- Edit Button Trigger -->
+                        <button class="btn btn-warning btn-sm" data-toggle="modal" data-target="#editModal_@remark.Id">Edit</button>
+
+                        <!-- Delete Button -->
+                        <form method="post" action="@Url.Action("Delete", new { id = remark.Id })" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @* Edit Modal *@
+    @foreach (var remark in Model)
+    {
+        <div class="modal fade" id="editModal_@remark.Id" tabindex="-1" role="dialog" aria-labelledby="editModalLabel_@remark.Id" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editModalLabel_@remark.Id">Edit Remark</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form method="post" action="@Url.Action("Edit")">
+                            <input type="hidden" name="id" value="@remark.Id" />
+                            <div class="form-group">
+                                <label for="category">Category:</label>
+                                <select id="category" class="form-control" disabled>
+                                    <option value="Temperature" @(remark.Category == "Temperature" ? "selected" : "")>Temperature</option>
+                                    <option value="Humidity" @(remark.Category == "Humidity" ? "selected" : "")>Humidity</option>
+                                    <option value="CO2" @(remark.Category == "CO2" ? "selected" : "")>CO2</option>
+                                    <option value="Ethylene" @(remark.Category == "Ethylene" ? "selected" : "")>Ethylene</option>
+                                    <option value="Fan" @(remark.Category == "Fan" ? "selected" : "")>Fan</option>
+                                    <option value="Door" @(remark.Category == "Door" ? "selected" : "")>Door</option>
+                                </select>
+
+                                <input type="hidden" name="category" value="@remark.Category" />
+
+                            </div>
+
+                            <div class="form-group">
+                                <label for="remarkText">Remark Text:</label>
+                                <textarea id="remarkText" name="remarkText" class="form-control" required>@remark.RemarkText</textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@* Link to Bootstrap JS (for Modal functionality) *@
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>

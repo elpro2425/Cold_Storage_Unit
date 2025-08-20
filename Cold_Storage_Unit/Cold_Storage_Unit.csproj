@@ -250,6 +250,7 @@
     <Compile Include="App_Start\FilterConfig.cs" />
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="Controllers\AccountController.cs" />
+    <Compile Include="Controllers\AddRemarkController.cs" />
     <Compile Include="Controllers\ColdStorageUnitApiController.cs" />
     <Compile Include="Controllers\ColdStorageUnitController.cs" />
     <Compile Include="Controllers\DoorStatusController.cs" />
@@ -263,6 +264,7 @@
     <Compile Include="Models\EmailService.cs" />
     <Compile Include="Models\GroupedSummaryModel.cs" />
     <Compile Include="Models\LoginViewModel.cs" />
+    <Compile Include="Models\Remark.cs" />
     <Compile Include="Models\ReportSummaryModel.cs" />
     <Compile Include="Models\ReportSummaryViewModel.cs" />
     <Compile Include="Models\ReportsViewModel.cs" />
@@ -327,6 +329,7 @@
     <Content Include="Views\Account\Settings.cshtml" />
     <Content Include="Views\ColdStorageUnitApi\EditTemperature.cshtml" />
     <Content Include="Views\DoorStatus\Index.cshtml" />
+    <Content Include="Views\AddRemark\Index.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />

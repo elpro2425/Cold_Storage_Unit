@@ -294,21 +294,21 @@
                                                 <td>@(Math.Truncate(avgTemp * 10) / 10)</td>
                                                 <td>@(Math.Truncate(avgHum * 10) / 10)</td>
                                                 <td>@(Math.Truncate(avgco2 * 10) / 10)</td>
-                                                <td>@(Math.Truncate(avgEth * 10) / 10)</td>
+                                                <td>@avgEth.ToString("0.00")</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Minimum</strong></td>
                                                 <td>@(Math.Truncate(minTemp * 10) / 10)</td>
                                                 <td>@(Math.Truncate(minHum * 10) / 10)</td>
                                                 <td>@(Math.Truncate(minco2 * 10) / 10)</td>
-                                                <td>@(Math.Truncate(minEth * 10) / 10)</td>
+                                                <td>@minEth.ToString("0.00")</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Maximum</strong></td>
                                                 <td>@(Math.Truncate(maxTemp * 10) / 10)</td>
                                                 <td>@(Math.Truncate(maxHum * 10) / 10)</td>
                                                 <td>@(Math.Truncate(maxco2 * 10) / 10)</td>
-                                                <td>@(Math.Truncate(maxEth * 10) / 10)</td>
+                                                <td>@maxEth.ToString("0.00")</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -366,21 +366,21 @@
                                                 <td>@(Math.Truncate(avgTemp * 10) / 10)</td>
                                                 <td>@(Math.Truncate(avgHum * 10) / 10)</td>
                                                 <td>@(Math.Truncate(avgco2 * 10) / 10)</td>
-                                                <td>@(Math.Truncate(avgEth * 10) / 10)</td>
+                                                <td>@avgEth.ToString("0.00")</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Minimum</strong></td>
                                                 <td>@(Math.Truncate(minTemp * 10) / 10)</td>
                                                 <td>@(Math.Truncate(minHum * 10) / 10)</td>
                                                 <td>@(Math.Truncate(minco2 * 10) / 10)</td>
-                                                <td>@(Math.Truncate(minEth * 10) / 10)</td>
+                                                <td>@minEth.ToString("0.00")</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Maximum</strong></td>
                                                 <td>@(Math.Truncate(maxTemp * 10) / 10)</td>
                                                 <td>@(Math.Truncate(maxHum * 10) / 10)</td>
                                                 <td>@(Math.Truncate(maxco2 * 10) / 10)</td>
-                                                <td>@(Math.Truncate(maxEth * 10) / 10)</td>
+                                                <td>@maxEth.ToString("0.00")</td>
                                             </tr>
                                         </tbody>
                                     </table>

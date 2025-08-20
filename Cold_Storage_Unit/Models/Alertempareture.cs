@@ -18,6 +18,9 @@ namespace Cold_Storage_Unit.Models
         public string condition { get; set; }
         public TimeSpan TimeInMinutes { get; set; }
 
+        public string Condition_Trigger { get; set; }
+        public string Remarks { get; set; }
+
         [NotMapped]
         public string TimeInMinutesFormatted
         {
@@ -31,7 +34,22 @@ namespace Cold_Storage_Unit.Models
             }
         }
 
-        public string Condition_Trigger { get; set; }
-        public string Remarks { get; set; }
+        // Optional: Selected Alert Code (e.g. A1H, A2L)
+        [NotMapped]
+        public string SelectedAlertCode { get; set; }
+
+        // Optional: Entire list of available alert definitions for dropdowns
+        [NotMapped]
+        public List<AlertDefinition> AlertDefinitions { get; set; } = new List<AlertDefinition>();
+    }
+
+    // Put this class in a shared location or file if used in multiple places
+    public class AlertDefinition
+    {
+        public string AlertName { get; set; }              // e.g. A1H
+        public string MessageDisplay { get; set; }         // e.g. High CO₂ Level Alert
+        public string ConditionTrigger { get; set; }       // e.g. CO₂ > 1200 ppm
+        public string Severity { get; set; }               // e.g. High
+        public string Remarks { get; set; }                // e.g. Risk of mold, spoilage
     }
 }

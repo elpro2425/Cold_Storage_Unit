@@ -1,6 +1,7 @@
 ﻿using Cold_Storage_Unit.Models;
 using iTextSharp.text;
 using iTextSharp.text.pdf;
+using MathNet.Numerics.LinearAlgebra.Factorization;
 using MySql.Data.MySqlClient;
 using NPOI.POIFS.Crypt.Dsig;
 using NPOI.SS.Formula.Functions;
@@ -11,6 +12,7 @@ using NPOI.XSSF.UserModel;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -281,7 +283,6 @@ namespace Cold_Storage_Unit.Controllers
 
                 bool includeName = string.IsNullOrEmpty(name) || name.Trim().ToLower() == "all";
 
-
                 var columnCount = includeName ? 10 : 9;
                 PdfPTable table = new PdfPTable(columnCount)
                 {
@@ -318,6 +319,7 @@ namespace Cold_Storage_Unit.Controllers
                 // Data rows
                 foreach (var r in rows)
                 {
+                    double truncatedEth = Math.Truncate(r.EthyleneLevel * 100) / 100;
                     table.AddCell(CreateCenterCell(r.Id.ToString(), cellFont));
 
                     if (includeName)
@@ -328,7 +330,8 @@ namespace Cold_Storage_Unit.Controllers
                     table.AddCell(CreateCenterCell(r.PowerStatus, cellFont));
                     table.AddCell(CreateCenterCell(r.DoorStatus, cellFont));
                     table.AddCell(CreateCenterCell((Math.Truncate(r.Co2Level * 10) / 10).ToString("0.0"), cellFont));
-                    table.AddCell(CreateCenterCell(r.EthyleneLevel.ToString("F2"), cellFont));
+                  
+                    table.AddCell(CreateCenterCell(truncatedEth.ToString("0.00"), cellFont));
                     table.AddCell(CreateCenterCell(r.FanSpeed.ToString(), cellFont));
                     table.AddCell(CreateCenterCell(r.Hardwaredate, cellFont)); // Make sure r.Hardwaredate is in single line format (e.g. "yyyy-MM-dd HH:mm:ss")
                 }
@@ -372,21 +375,20 @@ namespace Cold_Storage_Unit.Controllers
                     summaryTable.AddCell(new Phrase((Math.Truncate(avgTemp * 10) / 10).ToString("0.0"), summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(avgHum * 10) / 10).ToString("0.0"), summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(avgCO2 * 10) / 10).ToString("0.0"), summaryCellFont));
-                    summaryTable.AddCell(new Phrase((Math.Truncate(avgEth * 10) / 10).ToString("0.0"), summaryCellFont));
-
+                    summaryTable.AddCell(new Phrase((Math.Truncate(avgEth * 100) / 100).ToString("0.00"), summaryCellFont));
                     // Min Row
                     summaryTable.AddCell(new Phrase("Minimum", summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(minTemp * 10) / 10).ToString("0.0"), summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(minHum * 10) / 10).ToString("0.0"), summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(minCO2 * 10) / 10).ToString("0.0"), summaryCellFont));
-                    summaryTable.AddCell(new Phrase((Math.Truncate(minEth * 10) / 10).ToString("0.0"), summaryCellFont));
+                    summaryTable.AddCell(new Phrase((Math.Truncate(minEth * 100) / 100).ToString("0.00"), summaryCellFont));
 
                     // Max Row
                     summaryTable.AddCell(new Phrase("Maximum", summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(maxTemp * 10) / 10).ToString("0.0"), summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(maxHum * 10) / 10).ToString("0.0"), summaryCellFont));
                     summaryTable.AddCell(new Phrase((Math.Truncate(maxCO2 * 10) / 10).ToString("0.0"), summaryCellFont));
-                    summaryTable.AddCell(new Phrase((Math.Truncate(maxEth * 10) / 10).ToString("0.0"), summaryCellFont));
+                    summaryTable.AddCell(new Phrase((Math.Truncate(maxEth * 100) / 100).ToString("0.00"), summaryCellFont));
 
                     // Add summary to document before main table
                     doc.Add(new Paragraph("Summary Metrics", FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12)));
@@ -587,200 +589,226 @@ namespace Cold_Storage_Unit.Controllers
         //
         //
         //All Option Selection 
-
         [HttpGet]
         public JsonResult GetChartData(string name, string startDate, string endDate)
         {
-            List<ColdStorageUnit> rows = new List<ColdStorageUnit>();
+            var connStr = ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString;
+            DateTime startDt = DateTime.Parse(startDate, CultureInfo.InvariantCulture);
+            DateTime endDt = DateTime.Parse(endDate, CultureInfo.InvariantCulture);
 
-            using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
+            List<string> lineLabels = new List<string>();
+            List<double> tempData = new List<double>();
+            List<double> humData = new List<double>();
+            List<double> co2Data = new List<double>();
+            List<double> ethData = new List<double>();
+
+            List<string> barLabels = new List<string>();
+            List<double> minValues = new List<double>();
+            List<double> maxValues = new List<double>();
+            List<double> avgValues = new List<double>();
+
+            List<string> pieLabels = new List<string>();
+            List<double> pieData = new List<double>();
+
+            using (var conn = new MySqlConnection(connStr))
             {
                 conn.Open();
-                string filterQuery = " WHERE 1=1 ";
-                if (!string.IsNullOrEmpty(name))
-                    filterQuery += " AND TRIM(LOWER(Name)) = TRIM(LOWER(@name))";
-                if (!string.IsNullOrEmpty(startDate))
-                    filterQuery += " AND STR_TO_DATE(SUBSTRING_INDEX(Hardwaredate, ',', 1), '%e/%c/%Y') >= STR_TO_DATE(@startDate, '%Y-%m-%d')";
-                if (!string.IsNullOrEmpty(endDate))
-                    filterQuery += " AND STR_TO_DATE(SUBSTRING_INDEX(Hardwaredate, ',', 1), '%e/%c/%Y') <= STR_TO_DATE(@endDate, '%Y-%m-%d')";
 
-                string orderBy = "ORDER BY STR_TO_DATE(Hardwaredate, '%d/%m/%Y, %h:%i:%s %p') DESC";
-                string[] tables = { "ColdStorageUnit1", "ColdStorageUnit2" };
-                int id = 1;
+                // ====================== AGGREGATED LINE CHART ======================
+                string groupExpr = startDt.Date == endDt.Date
+                    ? "DATE_FORMAT(dt, '%d-%b %H:00')"               // hourly
+                    : "CONCAT(DATE(dt), ' ', LPAD(FLOOR(HOUR(dt)/4)*4,2,'0'), ':00')"; // 4-hour blocks
 
-                foreach (var table in tables)
+                string lineQuery = $@"
+SELECT 
+    {groupExpr} AS time_group,
+    ROUND(AVG(Temperature),2) AS avg_temperature,
+    ROUND(AVG(Humidity),2) AS avg_humidity,
+    ROUND(AVG(Co2Level),2) AS avg_co2,
+    ROUND(AVG(EthyleneLevel),2) AS avg_ethylene
+FROM (
+    SELECT STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') AS dt, Temperature, Humidity, Co2Level, EthyleneLevel
+    FROM ColdStorageUnit1
+    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN @startDateTime AND @endDateTime
+    UNION ALL
+    SELECT STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') AS dt, Temperature, Humidity, Co2Level, EthyleneLevel
+    FROM ColdStorageUnit2
+    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN @startDateTime AND @endDateTime
+) combined
+GROUP BY time_group
+ORDER BY time_group;
+";
+
+                DataTable dtLine = new DataTable();
+                using (var da = new MySqlDataAdapter(lineQuery, conn))
                 {
-                    string query = $"SELECT * FROM {table} {filterQuery} {orderBy}";
-                    using (var cmd = new MySqlCommand(query, conn))
-                    {
-                        if (!string.IsNullOrEmpty(name))
-                            cmd.Parameters.AddWithValue("@name", name);
-                        if (!string.IsNullOrEmpty(startDate))
-                            cmd.Parameters.AddWithValue("@startDate", DateTime.Parse(startDate).ToString("yyyy-MM-dd"));
-                        if (!string.IsNullOrEmpty(endDate))
-                            cmd.Parameters.AddWithValue("@endDate", DateTime.Parse(endDate).ToString("yyyy-MM-dd"));
+                    da.SelectCommand.Parameters.AddWithValue("@startDateTime", startDt.ToString("yyyy-MM-dd 00:00:00"));
+                    da.SelectCommand.Parameters.AddWithValue("@endDateTime", endDt.ToString("yyyy-MM-dd 23:59:59"));
+                    da.Fill(dtLine);
+                }
 
-                        using (var reader = cmd.ExecuteReader())
+                foreach (DataRow row in dtLine.Rows)
+                {
+                    lineLabels.Add(row["time_group"].ToString());
+                    tempData.Add(Convert.ToDouble(row["avg_temperature"]));
+                    humData.Add(Convert.ToDouble(row["avg_humidity"]));
+                    co2Data.Add(Convert.ToDouble(row["avg_co2"]));
+                    ethData.Add(Convert.ToDouble(row["avg_ethylene"]));
+                }
+
+                // ====================== APPEND CURRENT POINTS AFTER LAST AGGREGATE ======================
+                string newestQuery = @"
+                SELECT dt, Temperature, Humidity, Co2Level, EthyleneLevel FROM (
+                    SELECT STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') AS dt, Temperature, Humidity, Co2Level, EthyleneLevel
+                    FROM ColdStorageUnit1
+                    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN @startDateTime AND @endDateTime
+                    UNION ALL
+                    SELECT STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') AS dt, Temperature, Humidity, Co2Level, EthyleneLevel
+                    FROM ColdStorageUnit2
+                    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN @startDateTime AND @endDateTime
+                ) allData
+                WHERE dt > @lastAggregated
+                ORDER BY dt ASC;
+                ";
+
+                DateTime lastAggregated = dtLine.Rows.Count > 0
+                    ? DateTime.ParseExact(dtLine.Rows[dtLine.Rows.Count - 1]["time_group"].ToString(),
+                                          startDt.Date == endDt.Date ? "dd-MMM HH:00" : "yyyy-MM-dd HH:00",
+                                          CultureInfo.InvariantCulture)
+                    : startDt;
+
+                using (var cmdNewest = new MySqlCommand(newestQuery, conn))
+                {
+                    cmdNewest.Parameters.AddWithValue("@startDateTime", startDt.ToString("yyyy-MM-dd 00:00:00"));
+                    cmdNewest.Parameters.AddWithValue("@endDateTime", endDt.ToString("yyyy-MM-dd 23:59:59"));
+                    cmdNewest.Parameters.AddWithValue("@lastAggregated", lastAggregated);
+
+                    using (var reader = cmdNewest.ExecuteReader())
+                    {
+                        while (reader.Read())
                         {
-                            while (reader.Read())
+                            string label = Convert.ToDateTime(reader["dt"]).ToString("dd-MMM HH:mm");
+                            if (!lineLabels.Contains(label))
                             {
-                                rows.Add(new ColdStorageUnit
-                                {
-                                    Id = id,
-                                    Name = reader["Name"].ToString(),
-                                    Temperature = Convert.ToDouble(reader["Temperature"]),
-                                    Humidity = Convert.ToDouble(reader["Humidity"]),
-                                    PowerStatus = reader["PowerStatus"].ToString(),
-                                    DoorStatus = reader["DoorStatus"].ToString(),
-                                    Co2Level = Convert.ToDouble(reader["Co2Level"]),
-                                    EthyleneLevel = Convert.ToDouble(reader["EthyleneLevel"]),
-                                    FanSpeed = Convert.ToInt32(reader["FanSpeed"]),
-                                    Hardwaredate = reader["Hardwaredate"].ToString()
-                                });
-                                id++;
+                                lineLabels.Add(label);
+                                tempData.Add(Convert.ToDouble(reader["Temperature"]));
+                                humData.Add(Convert.ToDouble(reader["Humidity"]));
+                                co2Data.Add(Convert.ToDouble(reader["Co2Level"]));
+                                ethData.Add(Convert.ToDouble(reader["EthyleneLevel"]));
                             }
                         }
                     }
                 }
-            }
 
-            if (!rows.Any())
-            {
-                return Json(new { hasData = false }, JsonRequestBehavior.AllowGet);
-            }
+                // ====================== METRICS (MIN/MAX/AVG) ======================
+                string metricsQuery = @"
+               SELECT 
+                   ROUND(MIN(Temperature),2) AS min_temp, ROUND(MAX(Temperature),2) AS max_temp, ROUND(AVG(Temperature),2) AS avg_temp,
+                   ROUND(MIN(Humidity),2) AS min_hum, ROUND(MAX(Humidity),2) AS max_hum, ROUND(AVG(Humidity),2) AS avg_hum,
+                   ROUND(MIN(Co2Level),2) AS min_co2, ROUND(MAX(Co2Level),2) AS max_co2, ROUND(AVG(Co2Level),2) AS avg_co2,
+                   ROUND(MIN(EthyleneLevel),2) AS min_eth, ROUND(MAX(EthyleneLevel),2) AS max_eth, ROUND(AVG(EthyleneLevel),2) AS avg_eth
+               FROM (
+                   SELECT Temperature, Humidity, Co2Level, EthyleneLevel FROM ColdStorageUnit1
+                   WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN @startDateTime AND @endDateTime
+                   UNION ALL
+                   SELECT Temperature, Humidity, Co2Level, EthyleneLevel FROM ColdStorageUnit2
+                   WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') BETWEEN @startDateTime AND @endDateTime
+               ) combined;
+                 ";
 
-            // ✅ 4-Hour Averages for Line Chart
-            var hourlyData = rows
-                .GroupBy(r =>
+                using (var cmd = new MySqlCommand(metricsQuery, conn))
                 {
-                    var dt = DateTime.ParseExact(
-                        r.Hardwaredate.Trim(),
-                        "d/M/yyyy, h:mm:ss tt",
-                        CultureInfo.InvariantCulture
-                    );
-                    return new { Date = dt.Date, HourGroup = dt.Hour / 4 };
-                })
-                .Select(g => new
-                {
-                    Date = g.Key.Date.AddHours(g.Key.HourGroup * 4),
-                    AvgTemp = g.Average(x => x.Temperature),
-                    AvgHum = g.Average(x => x.Humidity),
-                    AvgCO2 = g.Average(x => x.Co2Level),
-                    AvgEth = g.Average(x => x.EthyleneLevel)
-                })
-                .OrderBy(d => d.Date)
-                .ToList();
-
-            // ✅ Metrics summary
-            var metrics = new[]
-            {
-                new {
-                    Name = "Temperature",
-                    Min = rows.Min(x => x.Temperature),
-                    Max = rows.Max(x => x.Temperature),
-                    Avg = rows.Average(x => x.Temperature),
-                },
-                new {
-                    Name = "Humidity",
-                    Min = rows.Min(x => x.Humidity),
-                    Max = rows.Max(x => x.Humidity),
-                    Avg = rows.Average(x => x.Humidity),
-                },
-                new {
-                    Name = "CO₂",
-                    Min = rows.Min(x => x.Co2Level),
-                    Max = rows.Max(x => x.Co2Level),
-                    Avg = rows.Average(x => x.Co2Level),
-                },
-                new {
-                    Name = "Ethylene",
-                    Min = rows.Min(x => x.EthyleneLevel),
-                    Max = rows.Max(x => x.EthyleneLevel),
-                    Avg = rows.Average(x => x.EthyleneLevel),
-                }
-            };
-
-            // ✅ Bar chart: Low/High/Avg values with labels
-            var barChartLabels = metrics.Select(m => m.Name).ToList(); // only sensor names
-
-            var lowValues = metrics.Select(m => m.Min).ToList();
-            var highValues = metrics.Select(m => m.Max).ToList();
-            var avgValues = metrics.Select(m => m.Avg).ToList();
-
-          
-
-            // ✅ Severity Pie Chart
-            int severityLow = 0, severityMedium = 0, severityHigh = 0;
-            using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
-            {
-                conn.Open();
-
-                string severityQuery = "SELECT TRIM(LOWER(Severity)) AS Severity, COUNT(*) AS Count FROM Alerts GROUP BY TRIM(LOWER(Severity))";
-                using (var cmd = new MySqlCommand(severityQuery, conn))
-                {
+                    cmd.Parameters.AddWithValue("@startDateTime", startDt.ToString("yyyy-MM-dd 00:00:00"));
+                    cmd.Parameters.AddWithValue("@endDateTime", endDt.ToString("yyyy-MM-dd 23:59:59"));
                     using (var reader = cmd.ExecuteReader())
                     {
-                        while (reader.Read())
+                        if (reader.Read())
                         {
-                            string sev = reader["Severity"].ToString();
-                            int count = Convert.ToInt32(reader["Count"]);
-                            if (sev == "low")
-                                severityLow = count;
-                            else if (sev == "medium")
-                                severityMedium = count;
-                            else if (sev == "high")
-                                severityHigh = count;
+                            barLabels = new List<string> { "Temperature", "Humidity", "CO₂", "Ethylene" };
+                            minValues = new List<double>
+                    {
+                        Convert.ToDouble(reader["min_temp"]),
+                        Convert.ToDouble(reader["min_hum"]),
+                        Convert.ToDouble(reader["min_co2"]),
+                        Convert.ToDouble(reader["min_eth"])
+                    };
+                            maxValues = new List<double>
+                    {
+                        Convert.ToDouble(reader["max_temp"]),
+                        Convert.ToDouble(reader["max_hum"]),
+                        Convert.ToDouble(reader["max_co2"]),
+                        Convert.ToDouble(reader["max_eth"])
+                    };
+                            avgValues = new List<double>
+                    {
+                        Convert.ToDouble(reader["avg_temp"]),
+                        Convert.ToDouble(reader["avg_hum"]),
+                        Convert.ToDouble(reader["avg_co2"]),
+                        Convert.ToDouble(reader["avg_eth"])
+                    };
+                        }
+                    }
+                }
+
+                // ====================== PIE CHART ======================
+                string pieQuery = @"
+                  SELECT 
+                      TRIM(LOWER(Severity)) AS severity,
+                      ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) AS percentage
+                  FROM Alerts
+                  WHERE CAST(Alert_Date AS DATETIME) BETWEEN @startDateTime AND @endDateTime
+                  GROUP BY Severity;
+                  ";
+
+                using (var cmd = new MySqlCommand(pieQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@startDateTime", startDt.ToString("yyyy-MM-dd 00:00:00"));
+                    cmd.Parameters.AddWithValue("@endDateTime", endDt.ToString("yyyy-MM-dd 23:59:59"));
+
+                    using (var da = new MySqlDataAdapter(cmd))
+                    {
+                        DataTable dtPie = new DataTable();
+                        da.Fill(dtPie);
+                        foreach (DataRow row in dtPie.Rows)
+                        {
+                            pieLabels.Add($"{row["severity"]} ({row["percentage"]}%)");
+                            pieData.Add(Convert.ToDouble(row["percentage"]));
                         }
                     }
                 }
             }
 
-            double severityTotal = severityLow + severityMedium + severityHigh;
-            double severityLowPercent = severityTotal > 0 ? (severityLow / severityTotal) * 100 : 0;
-            double severityMediumPercent = severityTotal > 0 ? (severityMedium / severityTotal) * 100 : 0;
-            double severityHighPercent = severityTotal > 0 ? (severityHigh / severityTotal) * 100 : 0;
-
-            // ✅ Final JSON Response
+            // ====================== FINAL JSON ======================
             var chartData = new
             {
-                hasData = true,
+                hasData = lineLabels.Any(),
                 lineChart = new
                 {
-                    labels = hourlyData.Select(d => d.Date.ToString("dd-MMM HH:mm")).ToList(),
+                    labels = lineLabels,
                     datasets = new[]
                     {
-                new { label = "Temperature", data = hourlyData.Select(d => d.AvgTemp).ToList(), borderColor = "rgb(220, 53, 69)", fill = false },
-                new { label = "Humidity", data = hourlyData.Select(d => d.AvgHum).ToList(), borderColor = "rgb(0, 123, 255)", fill = false },
-                new { label = "CO₂", data = hourlyData.Select(d => d.AvgCO2).ToList(), borderColor = "rgb(40, 167, 69)", fill = false },
-                new { label = "Ethylene", data = hourlyData.Select(d => d.AvgEth).ToList(), borderColor = "rgb(255, 193, 7)", fill = false }
+                new { label = "Temperature", data = tempData, borderColor = "rgb(220,53,69)", fill = false },
+                new { label = "Humidity", data = humData, borderColor = "rgb(0,123,255)", fill = false },
+                new { label = "CO₂", data = co2Data, borderColor = "rgb(40,167,69)", fill = false },
+                new { label = "Ethylene", data = ethData, borderColor = "rgb(255,193,7)", fill = false }
             }
                 },
                 barChart = new
                 {
-
-                    labels = barChartLabels,
+                    labels = barLabels,
                     datasets = new[]
-                   {
-                       new { label = "Low",  data = lowValues,  backgroundColor = "#60A5FA" },
-                       new { label = "High", data = highValues, backgroundColor = "#F87171" },
-                       new { label = "Avg",  data = avgValues,  backgroundColor = "#34D399" }
-                   }
+                    {
+                new { label = "Low", data = minValues, backgroundColor = "#60A5FA" },
+                new { label = "High", data = maxValues, backgroundColor = "#F87171" },
+                new { label = "Avg", data = avgValues, backgroundColor = "#34D399" }
+            }
                 },
                 pieChart = new
                 {
-                    labels = new[]
-                    {
-                $"Low ({severityLowPercent:F1}%)",
-                $"Medium ({severityMediumPercent:F1}%)",
-                $"High ({severityHighPercent:F1}%)"
-            },
+                    labels = pieLabels,
                     datasets = new[]
                     {
-                new
-                {
-                    data = new[] { severityLow, severityMedium, severityHigh },
-                    backgroundColor = new[] { "#4F46E5", "#60A5FA", "#A78BFA" }
-                }
+                new { data = pieData, backgroundColor = new[] { "#4F46E5", "#60A5FA", "#A78BFA" } }
             }
                 }
             };
@@ -790,59 +818,6 @@ namespace Cold_Storage_Unit.Controllers
 
         public ActionResult GeneratePdfSummarazieReport(string name, string startDate, string endDate, bool download = false)
         {
-            List<ColdStorageUnit> rows = new List<ColdStorageUnit>();
-
-            using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
-            {
-                conn.Open();
-                string filterQuery = " WHERE 1=1 ";
-                if (!string.IsNullOrEmpty(name))
-                    filterQuery += " AND TRIM(LOWER(Name)) = TRIM(LOWER(@name))";
-                if (!string.IsNullOrEmpty(startDate))
-                    filterQuery += " AND STR_TO_DATE(SUBSTRING_INDEX(Hardwaredate, ',', 1), '%e/%c/%Y') >= STR_TO_DATE(@startDate, '%Y-%m-%d')";
-                if (!string.IsNullOrEmpty(endDate))
-                    filterQuery += " AND STR_TO_DATE(SUBSTRING_INDEX(Hardwaredate, ',', 1), '%e/%c/%Y') <= STR_TO_DATE(@endDate, '%Y-%m-%d')";
-
-                string orderBy = "ORDER BY STR_TO_DATE(Hardwaredate, '%d/%m/%Y, %h:%i:%s %p') DESC";
-                string[] tables = { "ColdStorageUnit1", "ColdStorageUnit2" };
-                int id = 1;
-
-                foreach (var table in tables)
-                {
-                    string query = $"SELECT * FROM {table} {filterQuery} {orderBy}";
-                    using (var cmd = new MySqlCommand(query, conn))
-                    {
-                        if (!string.IsNullOrEmpty(name))
-                            cmd.Parameters.AddWithValue("@name", name);
-                        if (!string.IsNullOrEmpty(startDate))
-                            cmd.Parameters.AddWithValue("@startDate", DateTime.Parse(startDate).ToString("yyyy-MM-dd"));
-                        if (!string.IsNullOrEmpty(endDate))
-                            cmd.Parameters.AddWithValue("@endDate", DateTime.Parse(endDate).ToString("yyyy-MM-dd"));
-
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                rows.Add(new ColdStorageUnit
-                                {
-                                    Id = id,
-                                    Name = reader["Name"].ToString(),
-                                    Temperature = Convert.ToDouble(reader["Temperature"]),
-                                    Humidity = Convert.ToDouble(reader["Humidity"]),
-                                    PowerStatus = reader["PowerStatus"].ToString(),
-                                    DoorStatus = reader["DoorStatus"].ToString(),
-                                    Co2Level = Convert.ToDouble(reader["Co2Level"]),
-                                    EthyleneLevel = Convert.ToDouble(reader["EthyleneLevel"]),
-                                    FanSpeed = Convert.ToInt32(reader["FanSpeed"]),
-                                    Hardwaredate = reader["Hardwaredate"].ToString()
-                                });
-                                id++;
-                            }
-                        }
-                    }
-                }
-            }
-
             using (var ms = new MemoryStream())
             {
                 Document doc = new Document(PageSize.A4, 20f, 20f, 100f, 110f);
@@ -853,143 +828,192 @@ namespace Cold_Storage_Unit.Controllers
                 writer.PageEvent = new PdfFooter(logoPath, selectedStatus, startDate, endDate);
 
                 doc.Open();
-
                 var subTitleFont = FontFactory.GetFont(FontFactory.HELVETICA, 10);
 
-                if (rows.Any())
+                DataTable summaryDt = new DataTable();
+                DataTable severityDt = new DataTable();
+                DataTable lineDt = new DataTable();
+
+                using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
                 {
-                    // === Summary calculations ===
-                    double avgTemp = rows.Average(x => x.Temperature);
-                    double minTemp = rows.Min(x => x.Temperature);
-                    double maxTemp = rows.Max(x => x.Temperature);
+                    conn.Open();
 
-                    double avgHum = rows.Average(x => x.Humidity);
-                    double minHum = rows.Min(x => x.Humidity);
-                    double maxHum = rows.Max(x => x.Humidity);
+                    // === 1. Summary Query for Bar Chart ===
+                    string summaryQuery = @"
+                     SELECT
+                    ROUND(AVG(Temperature), 2) AS avg_temperature,
+                    MIN(Temperature) AS min_temperature,
+                    MAX(Temperature) AS max_temperature,
 
-                    double avgEth = rows.Average(x => x.EthyleneLevel);
-                    double minEth = rows.Min(x => x.EthyleneLevel);
-                    double maxEth = rows.Max(x => x.EthyleneLevel);
+                    ROUND(AVG(Humidity), 2) AS avg_humidity,
+                    MIN(Humidity) AS min_humidity,
+                    MAX(Humidity) AS max_humidity,
 
-                    double avgCO2 = rows.Average(x => x.Co2Level);
-                    double minCO2 = rows.Min(x => x.Co2Level);
-                    double maxCO2 = rows.Max(x => x.Co2Level);
+                    ROUND(AVG(Co2Level), 2) AS avg_co2,
+                    MIN(Co2Level) AS min_co2,
+                    MAX(Co2Level) AS max_co2,
 
-                    // === Summary Table ===
+                    ROUND(AVG(EthyleneLevel), 2) AS avg_ethylene,
+                    MIN(EthyleneLevel) AS min_ethylene,
+                    MAX(EthyleneLevel) AS max_ethylene
+                FROM (
+                    SELECT Temperature, Humidity, Co2Level, EthyleneLevel
+                    FROM ColdStorageUnit1
+                    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')
+                          BETWEEN @StartDate AND @EndDate
+                    UNION ALL
+                    SELECT Temperature, Humidity, Co2Level, EthyleneLevel
+                    FROM ColdStorageUnit2
+                    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')
+                          BETWEEN @StartDate AND @EndDate
+                ) AS combined_data;
+            ";
+
+                    using (var cmd = new MySqlCommand(summaryQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@StartDate", startDate + " 00:00:00");
+                        cmd.Parameters.AddWithValue("@EndDate", endDate + " 23:59:59");
+
+                        using (var da = new MySqlDataAdapter(cmd))
+                        {
+                            da.Fill(summaryDt);
+                        }
+                    }
+
+                    // === 2. Line Chart Query (hourly or 4-hour) ===
+                    bool sameDate = DateTime.Parse(startDate).Date == DateTime.Parse(endDate).Date;
+
+                    string groupExpr = sameDate
+                        ? "DATE_FORMAT(dt, '%Y-%m-%d %H:00:00')"     // Hourly
+                        : "DATE_FORMAT(DATE_ADD(DATE(dt), INTERVAL (HOUR(dt) DIV 4)*4 HOUR), '%Y-%m-%d %H:00:00')"; // 4-hour
+
+                    string lineQuery = $@"
+                SELECT 
+                    {groupExpr} AS timeblock,
+                    ROUND(AVG(Temperature),2) AS avg_temp,
+                    ROUND(AVG(Humidity),2) AS avg_hum,
+                    ROUND(AVG(Co2Level),2) AS avg_co2,
+                    ROUND(AVG(EthyleneLevel),2) AS avg_eth
+                FROM (
+                    SELECT STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') AS dt,
+                           Temperature, Humidity, Co2Level, EthyleneLevel
+                    FROM ColdStorageUnit1
+                    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')
+                          BETWEEN @StartDate AND @EndDate
+                    UNION ALL
+                    SELECT STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r') AS dt,
+                           Temperature, Humidity, Co2Level, EthyleneLevel
+                    FROM ColdStorageUnit2
+                    WHERE STR_TO_DATE(Hardwaredate, '%e/%c/%Y, %r')
+                          BETWEEN @StartDate AND @EndDate
+                ) AS combined
+                GROUP BY timeblock
+                ORDER BY timeblock;
+            ";
+
+                    using (var cmd = new MySqlCommand(lineQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@StartDate", startDate + " 00:00:00");
+                        cmd.Parameters.AddWithValue("@EndDate", endDate + " 23:59:59");
+
+                        using (var da = new MySqlDataAdapter(cmd))
+                        {
+                            da.Fill(lineDt);
+                        }
+                    }
+
+                    // === 3. Pie Chart Severity Query ===
+                    string severityQuery = @"
+                          SELECT 
+                              Severity,
+                              ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) AS percentage
+                          FROM Alerts
+                          WHERE CAST(Alert_Date AS DATETIME) BETWEEN @StartDate AND @EndDate
+                          GROUP BY Severity;
+                      ";
+
+                    using (var cmd2 = new MySqlCommand(severityQuery, conn))
+                    {
+                        cmd2.Parameters.AddWithValue("@StartDate", startDate + " 00:00:00");
+                        cmd2.Parameters.AddWithValue("@EndDate", endDate + " 23:59:59");
+
+                        using (var da2 = new MySqlDataAdapter(cmd2))
+                        {
+                            da2.Fill(severityDt);
+                        }
+                    }
+                }
+
+                // === Summary Table ===
+                if (summaryDt.Rows.Count > 0)
+                {
+                    var row = summaryDt.Rows[0];
+                    double minTemp = Convert.ToDouble(row["min_temperature"]);
+                    double maxTemp = Convert.ToDouble(row["max_temperature"]);
+                    double avgTemp = Convert.ToDouble(row["avg_temperature"]);
+
+                    double minHum = Convert.ToDouble(row["min_humidity"]);
+                    double maxHum = Convert.ToDouble(row["max_humidity"]);
+                    double avgHum = Convert.ToDouble(row["avg_humidity"]);
+
+                    double minCO2 = Convert.ToDouble(row["min_co2"]);
+                    double maxCO2 = Convert.ToDouble(row["max_co2"]);
+                    double avgCO2 = Convert.ToDouble(row["avg_co2"]);
+
+                    double minEth = Convert.ToDouble(row["min_ethylene"]);
+                    double maxEth = Convert.ToDouble(row["max_ethylene"]);
+                    double avgEth = Convert.ToDouble(row["avg_ethylene"]);
+
                     PdfPTable summaryTable = new PdfPTable(5)
                     {
-                        WidthPercentage = 100f,
-                        SpacingBefore = 10f,
+                        WidthPercentage = 90f,
+                        SpacingBefore = 5f,
                         SpacingAfter = 10f
                     };
                     summaryTable.SetWidths(new float[] { 1.5f, 1f, 1f, 1f, 1f });
-
-                    var summaryHeaderFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 11, BaseColor.WHITE);
-                    var summaryCellFont = FontFactory.GetFont(FontFactory.HELVETICA, 10, BaseColor.BLACK);
-                    BaseColor headerBackground = new BaseColor(52, 73, 94);
-                    BaseColor evenRowColor = new BaseColor(245, 245, 245);
-                    BaseColor oddRowColor = BaseColor.WHITE;
-                    BaseColor borderColor = new BaseColor(200, 200, 200);
+                    // Add extra left/right padding
+                    summaryTable.DefaultCell.PaddingLeft = 10f;
+                    summaryTable.DefaultCell.PaddingRight = 10f;
+                    summaryTable.HorizontalAlignment = Element.ALIGN_CENTER;
 
                     string[] headers = { "Metric", "Min", "Max", "Avg", "Range" };
-                    foreach (var h in headers)
+                    foreach (string h in headers)
+                        summaryTable.AddCell(new PdfPCell(new Phrase(h)) { BackgroundColor = BaseColor.LIGHT_GRAY });
+
+                    void AddRow(string names, double min, double max, double avg)
                     {
-                        PdfPCell headerCell = new PdfPCell(new Phrase(h, summaryHeaderFont))
-                        {
-                            BackgroundColor = headerBackground,
-                            Padding = 6f,
-                            HorizontalAlignment = Element.ALIGN_CENTER,
-                            VerticalAlignment = Element.ALIGN_MIDDLE,
-                            BorderColor = borderColor,
-                            BorderWidth = 1f
-                        };
-                        summaryTable.AddCell(headerCell);
+                        summaryTable.AddCell(names);
+                        summaryTable.AddCell(min.ToString("0.00"));
+                        summaryTable.AddCell(max.ToString("0.00"));
+                        summaryTable.AddCell(avg.ToString("0.00"));
+                        summaryTable.AddCell((max - min).ToString("0.00"));
                     }
 
-                    int rowIndex = 0;
-                    void AddSensorRow(string metricName, double min, double max, double avg)
-                    {
-                        double range = max - min;
-                        BaseColor bgColor = (rowIndex % 2 == 0) ? evenRowColor : oddRowColor;
+                    AddRow("Temperature (°C)", minTemp, maxTemp, avgTemp);
+                    AddRow("Humidity (%)", minHum, maxHum, avgHum);
+                    AddRow("CO₂ (ppm)", minCO2, maxCO2, avgCO2);
+                    AddRow("Ethylene (ppm)", minEth, maxEth, avgEth);
 
-                        string[] value = {
-                    metricName,
-                    (Math.Truncate(min * 10) / 10).ToString("0.0"),
-                    (Math.Truncate(max * 10) / 10).ToString("0.0"),
-                    (Math.Truncate(avg * 10) / 10).ToString("0.0"),
-                    (Math.Truncate(range * 10) / 10).ToString("0.0")
-                };
+                    doc.Add(summaryTable);
+                }
+                // === Bar Chart (Min/Max/Avg from SummaryDt) ===
 
-                        foreach (string val in value)
-                        {
-                            PdfPCell cell = new PdfPCell(new Phrase(val, summaryCellFont))
-                            {
-                                BackgroundColor = bgColor,
-                                Padding = 5f,
-                                BorderWidth = 1f,
-                                BorderColor = borderColor,
-                                HorizontalAlignment = Element.ALIGN_CENTER,
-                                VerticalAlignment = Element.ALIGN_MIDDLE
-                            };
-                            summaryTable.AddCell(cell);
-                        }
-                        rowIndex++;
-                    }
-
-                    AddSensorRow("Temperature (°C)", minTemp, maxTemp, avgTemp);
-                    AddSensorRow("Humidity (%)", minHum, maxHum, avgHum);
-                    AddSensorRow("CO2 (ppm)", minCO2, maxCO2, avgCO2);
-                    AddSensorRow("Ethylene (ppm)", minEth, maxEth, avgEth);
-
-                    PdfPTable paddedWrapper = new PdfPTable(1) { WidthPercentage = 100f };
-                    PdfPCell paddedCell = new PdfPCell(summaryTable)
-                    {
-                        PaddingLeft = 20f,
-                        PaddingRight = 20f,
-                        PaddingTop = 15f,
-                        PaddingBottom = 0f,
-                        Border = iTextSharp.text.Rectangle.NO_BORDER
-                    };
-                    paddedWrapper.AddCell(paddedCell);
-                    doc.Add(paddedWrapper);
-                    // iTextSharp font for threshold definitions text
-                    var dateFont = FontFactory.GetFont(FontFactory.HELVETICA, 10f, iTextSharp.text.Font.NORMAL, BaseColor.BLACK);
-
-                    var hourlyData = rows
-                        .GroupBy(r =>
-                        {
-                            var dt = DateTime.ParseExact(
-                                r.Hardwaredate.Trim(),
-                                "d/M/yyyy, h:mm:ss tt", // full datetime format
-                                CultureInfo.InvariantCulture
-                            );
-                            return new { Date = dt.Date, HourGroup = dt.Hour / 4 };
-                        })
-                        .Select(g => new
-                        {
-                            Date = g.Key.Date.AddHours(g.Key.HourGroup * 4),
-                            AvgTemp = g.Average(x => x.Temperature),
-                            AvgHum = g.Average(x => x.Humidity),
-                            AvgCO2 = g.Average(x => x.Co2Level),
-                            AvgEth = g.Average(x => x.EthyleneLevel)
-                        })
-                        .OrderBy(d => d.Date)
-                        .ToList();
-
-
-                    // === Create Modern Multi-Line Chart ===
+                // === Line Chart (Hourly or 4-Hour) ===
+                if (lineDt.Rows.Count > 0)
+                {
                     var chart = new System.Web.UI.DataVisualization.Charting.Chart();
-                    chart.Width = 650;
-                    chart.Height = 320;
+                    chart.Width =750;
+                    chart.Height = 300;
                     chart.BackColor = System.Drawing.Color.White;
 
                     // Chart Area styling
                     ChartArea chartArea = new ChartArea();
-                    chartArea.AxisX.Interval = 4;
                     chartArea.AxisX.Title = "Date";
                     chartArea.AxisY.Title = "Sensor Values";
                     chartArea.AxisX.LabelStyle.Angle = -45;
-                  
+                    chartArea.AxisX.LabelStyle.IsStaggered = true;
+                    //chartArea.Area3DStyle.Enable3D = true;
+                    chartArea.AxisX.IntervalAutoMode = IntervalAutoMode.VariableCount;
                     chartArea.BackColor = System.Drawing.Color.White;
                     chartArea.AxisX.MajorGrid.Enabled = false; // Remove vertical grid lines
                     chartArea.AxisY.MajorGrid.LineColor = System.Drawing.Color.LightGray; // Subtle horizontal grid
@@ -998,48 +1022,97 @@ namespace Cold_Storage_Unit.Controllers
                     chartArea.BorderColor = System.Drawing.Color.Transparent;
                     chartArea.AxisX.LineColor = System.Drawing.Color.Black;
                     chartArea.AxisY.LineColor = System.Drawing.Color.Black;
+
+
                     chart.ChartAreas.Add(chartArea);
+                    chart.Titles.Add(new Title("Performance",
+                    Docking.Top,
+                    new System.Drawing.Font("Arial", 12, System.Drawing.FontStyle.Bold),
+                    System.Drawing.Color.Black));
 
-                    // Helper function to make smooth series
-                    Func<string, System.Drawing.Color, Func<dynamic, double>, Series> makeSeries = (seriesName, seriesColor, selector) =>
+                    // Define 4 smooth styled series
+                    Series sTemp = new Series("Temperature")
                     {
-                        Series s = new Series(seriesName)
-                        {
-                            ChartType = SeriesChartType.Spline,
-                            BorderWidth = 3,
-                            Color = seriesColor,
-                            MarkerStyle = MarkerStyle.Circle,
-                            MarkerSize = 6,
-                            XValueType = ChartValueType.DateTime
-
-
-                        };
-
-                        foreach (var d in hourlyData)
-                            s.Points.AddXY(d.Date, selector(d));
-
-                        return s;
-
-
+                        ChartType = SeriesChartType.Spline,
+                        BorderWidth = 3,
+                        Color = System.Drawing.Color.FromArgb(220, 53, 69), // Red-ish
+                        MarkerStyle = MarkerStyle.Circle,
+                        MarkerSize = 6,
+                        XValueType = ChartValueType.DateTime
                     };
 
-                    // Format axis labels
-                    // Set X-axis range to match your data
-                    chart.ChartAreas[0].AxisX.Minimum = hourlyData.Min(d => d.Date).ToOADate();
-                    chart.ChartAreas[0].AxisX.Maximum = hourlyData.Max(d => d.Date).ToOADate();
+                    Series sHum = new Series("Humidity")
+                    {
+                        ChartType = SeriesChartType.Spline,
+                        BorderWidth = 3,
+                        Color = System.Drawing.Color.FromArgb(0, 123, 255), // Blue
+                        MarkerStyle = MarkerStyle.Circle,
+                        MarkerSize = 6,
+                        XValueType = ChartValueType.DateTime
+                    };
 
-                    // Ensure interval type is hours for 4-hour blocks
-                    chart.ChartAreas[0].AxisX.IntervalType = DateTimeIntervalType.Hours;
-                    chart.ChartAreas[0].AxisX.Interval = 4;
+                    Series sCO2 = new Series("CO₂")
+                    {
+                        ChartType = SeriesChartType.Spline,
+                        BorderWidth = 3,
+                        Color = System.Drawing.Color.FromArgb(40, 167, 69), // Green
+                        MarkerStyle = MarkerStyle.Circle,
+                        MarkerSize = 6,
+                        XValueType = ChartValueType.DateTime
+                    };
 
-                    // Format label
-                    chart.ChartAreas[0].AxisX.LabelStyle.Format = "dd-MMM HH:mm";
+                    Series sEth = new Series("Ethylene")
+                    {
+                        ChartType = SeriesChartType.Spline,
+                        BorderWidth = 3,
+                        Color = System.Drawing.Color.FromArgb(255, 193, 7), // Yellow
+                        MarkerStyle = MarkerStyle.Circle,
+                        MarkerSize = 6,
+                        XValueType = ChartValueType.DateTime
+                    };
 
-                    // Add 4 smooth series
-                    chart.Series.Add(makeSeries("Temperature", System.Drawing.Color.FromArgb(220, 53, 69), x => x.AvgTemp)); // Red-ish
-                    chart.Series.Add(makeSeries("Humidity", System.Drawing.Color.FromArgb(0, 123, 255), x => x.AvgHum));    // Blue
-                    chart.Series.Add(makeSeries("CO₂", System.Drawing.Color.FromArgb(40, 167, 69), x => x.AvgCO2));         // Green
-                    chart.Series.Add(makeSeries("Ethylene", System.Drawing.Color.FromArgb(255, 193, 7), x => x.AvgEth));    // Yellow
+                    // Bind data from lineDt (same logic as before)
+                    foreach (DataRow r in lineDt.Rows)
+                    {
+                       
+                        DateTime t = Convert.ToDateTime(r["timeblock"]);
+                        sTemp.Points.AddXY(t, Convert.ToDouble(r["avg_temp"]));
+                        sHum.Points.AddXY(t, Convert.ToDouble(r["avg_hum"]));
+                        sCO2.Points.AddXY(t, Convert.ToDouble(r["avg_co2"]));
+                        sEth.Points.AddXY(t, Convert.ToDouble(r["avg_eth"]));
+                    }
+
+                    chart.Series.Add(sTemp);
+                    chart.Series.Add(sHum);
+                    chart.Series.Add(sCO2);
+                    chart.Series.Add(sEth);
+
+                    DateTime minDate = lineDt.AsEnumerable().Min(r => Convert.ToDateTime(r["timeblock"].ToString()));
+                    DateTime maxDate = lineDt.AsEnumerable().Max(r => Convert.ToDateTime(r["timeblock"].ToString()));
+
+                    DateTime now = DateTime.Now;
+
+                    // Extend maximum axis to "now" if current time is later
+                    if (now > maxDate)
+                        maxDate = now;
+
+                    chartArea.AxisX.Minimum = minDate.ToOADate();
+                    chartArea.AxisX.Maximum = maxDate.ToOADate();
+
+                    // Always show date + time
+                    if (minDate.Date == maxDate.Date)
+                    {
+                        chartArea.AxisX.IntervalType = DateTimeIntervalType.Hours;
+                        chartArea.AxisX.Interval = 2;
+                    }
+                    else
+                    {
+                        chartArea.AxisX.IntervalType = DateTimeIntervalType.Hours;
+                        chartArea.AxisX.Interval = 4;
+                    }
+
+                    // Force date + time in labels
+                    chartArea.AxisX.LabelStyle.Format = "dd-MMM HH:mm";
 
                     // Legend styling
                     Legend legends = new Legend("Sensors");
@@ -1049,50 +1122,73 @@ namespace Cold_Storage_Unit.Controllers
                     legends.BorderColor = System.Drawing.Color.Transparent;
                     chart.Legends.Add(legends);
 
-                    // Save to MemoryStream
-                    using (var chartStream = new MemoryStream())
+                    // Save and add to PDF
+                    using (var msChart = new MemoryStream())
                     {
-                        chart.SaveImage(chartStream, ChartImageFormat.Png);
-                        chartStream.Position = 0;
-
-                        var chartImage = iTextSharp.text.Image.GetInstance(chartStream.ToArray());
-                        chartImage.Alignment = Element.ALIGN_CENTER;
-                        chartImage.ScaleToFit(500f, 155f);
-                        doc.Add(chartImage);
+                        chart.SaveImage(msChart, ChartImageFormat.Png);
+                        msChart.Position = 0;
+                        var img = iTextSharp.text.Image.GetInstance(msChart.ToArray());
+                        img.Alignment = Element.ALIGN_CENTER;
+                        img.ScaleToFit(500f, 200f);
+                        doc.Add(img);
                     }
+                }
 
-                    // === Bar Chart for Min/Avg/Max Sensor Values (Single Color, One Legend) ===
+                if (summaryDt.Rows.Count > 0)
+                {
+                    var row = summaryDt.Rows[0];
+
+                    // Get values from summaryDt
+                    double minTemp = Convert.ToDouble(row["min_temperature"]);
+                    double maxTemp = Convert.ToDouble(row["max_temperature"]);
+                    double avgTemp = Convert.ToDouble(row["avg_temperature"]);
+
+                    double minHum = Convert.ToDouble(row["min_humidity"]);
+                    double maxHum = Convert.ToDouble(row["max_humidity"]);
+                    double avgHum = Convert.ToDouble(row["avg_humidity"]);
+
+                    double minCO2 = Convert.ToDouble(row["min_co2"]);
+                    double maxCO2 = Convert.ToDouble(row["max_co2"]);
+                    double avgCO2 = Convert.ToDouble(row["avg_co2"]);
+
+                    double minEth = Convert.ToDouble(row["min_ethylene"]);
+                    double maxEth = Convert.ToDouble(row["max_ethylene"]);
+                    double avgEth = Convert.ToDouble(row["avg_ethylene"]);
+
+                    // Create chart
                     var barChart = new System.Web.UI.DataVisualization.Charting.Chart();
                     barChart.Width = 700;
-                    barChart.Height = 250;
+                    barChart.Height = 220;
                     barChart.BackColor = System.Drawing.Color.White;
 
-                    // Chart area
-                    // Chart area
                     ChartArea barArea = new ChartArea();
                     barArea.AxisX.Interval = 1;
                     barArea.AxisX.MajorGrid.Enabled = false;
+                   
                     barArea.AxisY.MajorGrid.LineColor = System.Drawing.Color.LightGray;
                     barArea.AxisX.Title = "Sensors";
                     barArea.AxisY.Title = "Values";
                     barArea.AxisX.LabelStyle.Angle = -20;
                     barChart.ChartAreas.Add(barArea);
+                    barChart.Titles.Add(new Title("Alert Type Distribution",
+                    Docking.Top,
+                    new System.Drawing.Font("Arial", 12, System.Drawing.FontStyle.Bold),
+                    System.Drawing.Color.Black));
 
-                    // Legend
                     Legend legend = new Legend();
                     legend.Docking = Docking.Bottom;
                     legend.Alignment = StringAlignment.Center;
                     legend.Font = new System.Drawing.Font("Arial", 9f, System.Drawing.FontStyle.Bold);
                     barChart.Legends.Add(legend);
 
-                    // Create 3 separate series (grouped by sensor)
-                    Series lowSeries = new Series("Low")
+                    // Series
+                    Series lowSeries = new Series("Min")
                     {
                         ChartType = SeriesChartType.Column,
                         Color = System.Drawing.Color.FromArgb(150, 79, 70, 229) // light blue
                     };
 
-                    Series highSeries = new Series("High")
+                    Series highSeries = new Series("Max")
                     {
                         ChartType = SeriesChartType.Column,
                         Color = System.Drawing.Color.FromArgb(150, 220, 38, 38) // light red
@@ -1104,29 +1200,23 @@ namespace Cold_Storage_Unit.Controllers
                         Color = System.Drawing.Color.FromArgb(150, 34, 197, 94) // light green
                     };
 
-                    string[] sensors = { "Temperature", "Humidity", "CO₂", "Ethylene" };
+                    // Add points using summary data
+                    lowSeries.Points.AddXY("Temperature", minTemp);
+                    avgSeries.Points.AddXY("Temperature", avgTemp);
+                    highSeries.Points.AddXY("Temperature", maxTemp);
 
-                    foreach (string sensor in sensors)
-                    {
-                        double minVal = sensor == "Temperature" ? rows.Min(x => x.Temperature) :
-                                        sensor == "Humidity" ? rows.Min(x => x.Humidity) :
-                                        sensor == "CO₂" ? rows.Min(x => x.Co2Level) : rows.Min(x => x.EthyleneLevel);
+                    lowSeries.Points.AddXY("Humidity", minHum);
+                    avgSeries.Points.AddXY("Humidity", avgHum);
+                    highSeries.Points.AddXY("Humidity", maxHum);
 
-                        double avgVal = sensor == "Temperature" ? rows.Average(x => x.Temperature) :
-                                        sensor == "Humidity" ? rows.Average(x => x.Humidity) :
-                                        sensor == "CO₂" ? rows.Average(x => x.Co2Level) : rows.Average(x => x.EthyleneLevel);
+                    lowSeries.Points.AddXY("CO₂", minCO2);
+                    avgSeries.Points.AddXY("CO₂", avgCO2);
+                    highSeries.Points.AddXY("CO₂", maxCO2);
 
-                        double maxVal = sensor == "Temperature" ? rows.Max(x => x.Temperature) :
-                                        sensor == "Humidity" ? rows.Max(x => x.Humidity) :
-                                        sensor == "CO₂" ? rows.Max(x => x.Co2Level) : rows.Max(x => x.EthyleneLevel);
+                    lowSeries.Points.AddXY("Ethylene", minEth);
+                    avgSeries.Points.AddXY("Ethylene", avgEth);
+                    highSeries.Points.AddXY("Ethylene", maxEth);
 
-                        // Add each value to its corresponding series (all share same category name)
-                        lowSeries.Points.AddXY(sensor, minVal);
-                        avgSeries.Points.AddXY(sensor, avgVal);
-                        highSeries.Points.AddXY(sensor, maxVal);
-                    }
-
-                    // Add all 3 series
                     barChart.Series.Add(lowSeries);
                     barChart.Series.Add(avgSeries);
                     barChart.Series.Add(highSeries);
@@ -1136,7 +1226,7 @@ namespace Cold_Storage_Unit.Controllers
                     avgSeries["PointWidth"] = "0.3";
                     highSeries["PointWidth"] = "0.3";
 
-                    // === Save into PDF ===
+                    // Save and add to PDF
                     using (var barStream = new MemoryStream())
                     {
                         barChart.SaveImage(barStream, ChartImageFormat.Png);
@@ -1146,108 +1236,91 @@ namespace Cold_Storage_Unit.Controllers
                         barImage.ScaleToFit(500f, 250f);
                         doc.Add(barImage);
                     }
+                }
 
-                    // === Pie Chart from Severity column in Alerts table ===
-                    int severityLow = 0, severityMedium = 0, severityHigh = 0;
+                // === Pie Chart ===
 
-                    using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString))
+                if (severityDt.Rows.Count > 0)
+                {
+                    var pieChart = new System.Web.UI.DataVisualization.Charting.Chart { Width = 450, Height = 240 };
+                    pieChart.BackColor = System.Drawing.Color.White;
+
+                    ChartArea chartArea = new ChartArea();
+                    chartArea.Area3DStyle.Enable3D = true;
+                    pieChart.ChartAreas.Add(chartArea);
+                    pieChart.Titles.Add(new Title("Alert Severity Breakdown",
+                        Docking.Top,
+                        new System.Drawing.Font("Arial", 12, System.Drawing.FontStyle.Bold),
+                        System.Drawing.Color.Black));
+
+                    // Legend at bottom center
+                    Legend legend = new Legend
                     {
-                        conn.Open();
+                        Docking = Docking.Bottom,
+                        Alignment = System.Drawing.StringAlignment.Center
+                    };
+                    pieChart.Legends.Add(legend);
 
-                        string severityQuery = "SELECT TRIM(LOWER(Severity)) AS Severity, COUNT(*) AS Count FROM Alerts GROUP BY TRIM(LOWER(Severity))";
-                        using (var cmd = new MySqlCommand(severityQuery, conn))
-                        using (var reader = cmd.ExecuteReader())
+                    Series pie = new Series
+                    {
+                        ChartType = SeriesChartType.Pie,
+                        IsValueShownAsLabel = true,
+                        Label = "#VALX: #PERCENT{P0}",
+                        LegendText = "#VALX",
+                        ["PieLabelStyle"] = "Inside",
+                        ["PieLineColor"] = "Black"
+                    };
+
+                    // Define your custom colors
+                    var colors = new List<System.Drawing.Color>
+{
+    System.Drawing.ColorTranslator.FromHtml("#4F46E5"),
+    System.Drawing.ColorTranslator.FromHtml("#60A5FA"),
+    System.Drawing.ColorTranslator.FromHtml("#A78BFA")
+};
+
+                    int colorIndex = 0;
+
+                    foreach (DataRow dr in severityDt.Rows)
+                    {
+                        double percentage = Convert.ToDouble(dr["percentage"]);
+                        if (percentage > 0)  // skip 0% slices
                         {
-                            while (reader.Read())
-                            {
-                                string sev = reader["Severity"].ToString();
-                                int count = Convert.ToInt32(reader["Count"]);
-                                if (sev == "low")
-                                    severityLow = count;
-                                else if (sev == "medium")
-                                    severityMedium = count;
-                                else if (sev == "high")
-                                    severityHigh = count;
-                            }
+                            int pointIndex = pie.Points.AddXY(dr["Severity"].ToString(), percentage);
+                            pie.Points[pointIndex].Color = colors[colorIndex % colors.Count]; // assign custom color
+                            colorIndex++;
                         }
                     }
 
-                    double severityTotal = severityLow + severityMedium + severityHigh;
-                    double severityLowPercent = severityTotal > 0 ? (severityLow / severityTotal) * 100 : 0;
-                    double severityMediumPercent = severityTotal > 0 ? (severityMedium / severityTotal) * 100 : 0;
-                    double severityHighPercent = severityTotal > 0 ? (severityHigh / severityTotal) * 100 : 0;
+                    pieChart.Series.Add(pie);
 
-                  
-                    var pieChart = new System.Web.UI.DataVisualization.Charting.Chart();
-                    pieChart.Width = 400;
-                    pieChart.Height = 200;
-                    pieChart.BackColor = System.Drawing.Color.White;
-                    pieChart.ChartAreas.Add(new ChartArea("PieArea"));
-
-                    Legend pieLegend = new Legend("Legend")
+                    using (var msPie = new MemoryStream())
                     {
-                        Docking = Docking.Right,
-                        Alignment = StringAlignment.Center,
-                        Font = new System.Drawing.Font("Arial", 10f, System.Drawing.FontStyle.Bold)
-                    };
-                    pieChart.Legends.Add(pieLegend);
+                        pieChart.SaveImage(msPie, ChartImageFormat.Png);
+                        msPie.Position = 0;
+                        var img = iTextSharp.text.Image.GetInstance(msPie.ToArray());
 
-                    Series pieSeries = new Series("Severity");
-                    pieSeries.ChartType = SeriesChartType.Pie;
-                    pieSeries.Points.AddXY("Low", severityLow);
-                    pieSeries.Points.AddXY("Medium", severityMedium);
-                    pieSeries.Points.AddXY("High", severityHigh);
+                        // Scale and center the chart
+                        img.ScaleToFit(350f, 180f);
+                        img.Alignment = iTextSharp.text.Element.ALIGN_CENTER;
 
-                    // Colors from your request
-                    pieSeries.Points[0].Color = System.Drawing.ColorTranslator.FromHtml("#A78BFA"); // Indigo
-                    pieSeries.Points[1].Color = System.Drawing.ColorTranslator.FromHtml("#60A5FA"); // Light Blue
-                    pieSeries.Points[2].Color = System.Drawing.ColorTranslator.FromHtml("#4F46E5"); // Purple
-
-                    pieSeries.Label = "#VALX: #PERCENT{P1}";
-                    pieSeries.LegendText = "#VALX";
-
-                    pieChart.Series.Add(pieSeries);
-
-                    // Save pie chart to stream
-                    // Save pie chart to stream
-                    using (var pieStream = new MemoryStream())
-                    {
-                        pieChart.SaveImage(pieStream, ChartImageFormat.Png);
-                        pieStream.Position = 0;
-
-                        doc.Add(new Paragraph("\n\n")); // ✅ spacing before pie chart
-                        var pieImage = iTextSharp.text.Image.GetInstance(pieStream.ToArray());
-                        pieImage.Alignment = Element.ALIGN_CENTER;
-                        pieImage.ScaleToFit(350f, 120f); // ✅ smaller so it fits on same page
-                        doc.Add(pieImage);
+                        doc.Add(img);
                     }
+                }
 
-                }
-                else
-                {
-                    doc.Add(new Paragraph("No data found for the selected filters.", subTitleFont)
-                    {
-                        Alignment = Element.ALIGN_CENTER,
-                        SpacingBefore = 20f
-                    });
-                }
+
 
                 doc.Close();
-
                 var fileBytes = ms.ToArray();
                 var fileName = $"ColdStorage_Summary_{DateTime.Now:yyyyMMdd_HHmm}.pdf";
 
                 Response.Clear();
                 Response.ContentType = "application/pdf";
-                if (download)
-                    Response.AddHeader("Content-Disposition", $"attachment; filename={fileName}");
-                else
-                    Response.AddHeader("Content-Disposition", $"inline; filename={fileName}");
-
+                Response.AddHeader("Content-Disposition", download
+                    ? $"attachment; filename={fileName}"
+                    : $"inline; filename={fileName}");
                 Response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
-                Response.Flush();
                 Response.End();
-
                 return null;
             }
         }
@@ -1897,6 +1970,7 @@ namespace Cold_Storage_Unit.Controllers
                     conn.Open();
 
                     // Populate severity dropdown
+                    // Populate severity dropdown
                     var allSeverities = new List<string>();
                     using (var cmd = new MySqlCommand("SELECT DISTINCT TRIM(Severity) as Severity FROM Alerts ORDER BY Severity", conn))
                     {
@@ -1904,7 +1978,11 @@ namespace Cold_Storage_Unit.Controllers
                         {
                             while (reader.Read())
                             {
-                                allSeverities.Add(reader["Severity"].ToString());
+                                var severityValue = reader["Severity"]?.ToString();
+                                if (!string.IsNullOrWhiteSpace(severityValue))   // ✅ skip null/empty/whitespace
+                                {
+                                    allSeverities.Add(severityValue);
+                                }
                             }
                         }
                     }

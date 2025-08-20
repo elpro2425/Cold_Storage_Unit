@@ -256,10 +256,6 @@
                     <i class="bi bi-bar-chart fs-5"></i>
                     <span>Reports</span>
                 </a>
-                @*<a class="nav-link mb-3 d-flex align-items-center gap-3 fw-bold @(currentController == "DoorStatus" ? "active" : "")" href="/DoorStatus/Index">
-                    <i class="bi bi-bar-chart fs-5"></i>
-                    <span>weight</span>
-                </a>*@
 
                 @if (userRole == "admin")
                 {
@@ -281,13 +277,19 @@
                                     <li class="nav-item">
                                         <a class="nav-link @IsActive("ColdStorageUnitApi", "EditTemperature")"
                                            href="@Url.Action("EditTemperature", "ColdStorageUnitApi")">
-                                            Edit AlertTemp
+                                            Sensors Setting
                                         </a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link @IsActive("Account", "Settings")"
                                            href="@Url.Action("Settings", "Account")">
                                             Edit Profile
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link @IsActive("AddRemark", "Index")"
+                                           href="@Url.Action("Index", "AddRemark")">
+                                            Item Master
                                         </a>
                                     </li>
                                 </ul>
@@ -330,11 +332,6 @@
                         <i class="bi bi-bar-chart fs-5"></i>
                         <span>Reports</span>
                     </a>
-                    @*<a class="nav-link mb-3 d-flex align-items-center gap-3 fw-bold @(currentController == "DoorStatus" ? "active" : "")" href="/DoorStatus/Index">
-                        <i class="bi bi-bar-chart fs-5"></i>
-                        <span>weight</span>
-                    </a>*@
-
                     @if (userRole == "admin")
                     {
                         <a class="nav-link mb-3 d-flex align-items-center gap-3 fw-bold @IsActive("Account", "ManageUsers")" href="/Account/ManageUsers">
@@ -357,13 +354,19 @@
                                         <li class="nav-item">
                                             <a class="nav-link @IsActive("ColdStorageUnitApi", "EditTemperature")"
                                                href="@Url.Action("EditTemperature", "ColdStorageUnitApi")">
-                                                Edit AlertTemp
+                                                Sensors Setting
                                             </a>
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link @IsActive("Account", "Settings")"
                                                href="@Url.Action("Settings", "Account")">
                                                 Edit Profile
+                                            </a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link @IsActive("AddRemark", "Index")"
+                                               href="@Url.Action("Index", "AddRemark")">
+                                                Item Master
                                             </a>
                                         </li>
                                     </ul>
