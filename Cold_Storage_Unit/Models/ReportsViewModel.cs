@@ -9,6 +9,11 @@ namespace Cold_Storage_Unit.Models
     {
         public List<ColdStorageUnit> ColdStorageData { get; set; }
         public List<DoorStatus> DoorStatusData { get; set; }
+        public List<Alert> AlertsData { get; set; }
+
     }
+
+
+
 
 }

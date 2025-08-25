@@ -370,22 +370,20 @@ namespace Cold_Storage_Unit.Controllers
         }
         //edit setting data
         [HttpGet]
-        public ActionResult EditTemperature(string unitName = null, string category = null)
+        public ActionResult EditTemperature(int? id = null, string unitName = null, string category = null)
         {
             var connString = ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString;
 
-            // Prepare containers
             var units = new List<string>();
             var categories = new List<string>();
             var allSettings = new List<Alertempareture>();
-
             var model = new Alertempareture();
 
             using (var conn = new MySqlConnection(connString))
             {
                 conn.Open();
 
-                // Get distinct UnitNames
+                // Load UnitNames
                 using (var cmd = new MySqlCommand("SELECT DISTINCT UnitName FROM ReadTimeColdStorage ORDER BY UnitName", conn))
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -393,16 +391,76 @@ namespace Cold_Storage_Unit.Controllers
                         units.Add(reader.GetString(0));
                 }
 
-                // Get distinct Categories
+                // Load Categories
                 using (var cmd = new MySqlCommand("SELECT DISTINCT Category FROM Settings ORDER BY Category", conn))
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
-                        categories.Add(reader.GetString(0));
+                    {
+                        if (!reader.IsDBNull(0))   // check for NULL
+                            categories.Add(reader.GetString(0));
+                        else
+                            categories.Add(string.Empty); // or skip, depending on your logic
+                    }
                 }
 
-                // If filtering by unitName and category, load the single model
-                if (!string.IsNullOrEmpty(unitName) && !string.IsNullOrEmpty(category))
+                // ✅ EDIT MODE (load by ID only)
+                if (id.HasValue)
+                {
+                    string sql = "SELECT * FROM Settings WHERE id = @id";
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id.Value);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                model.Id = reader.IsDBNull(reader.GetOrdinal("id"))
+                                    ? 0
+                                    : reader.GetInt32(reader.GetOrdinal("id"));
+
+                                model.UnitName = reader.IsDBNull(reader.GetOrdinal("UnitName"))
+                                    ? "0"
+                                    : reader.GetString(reader.GetOrdinal("UnitName"));
+
+                                model.Category = reader.IsDBNull(reader.GetOrdinal("Category"))
+                                    ? "0"
+                                    : reader.GetString(reader.GetOrdinal("Category"));
+
+                                model.threshold = reader.IsDBNull(reader.GetOrdinal("threshold"))
+                                    ? 0
+                                    : reader.GetDouble(reader.GetOrdinal("threshold"));
+
+                                model.message_display = reader.IsDBNull(reader.GetOrdinal("message_display"))
+                                    ? "0"
+                                    : reader.GetString(reader.GetOrdinal("message_display"));
+
+                                model.enabled = reader.IsDBNull(reader.GetOrdinal("enabled"))
+                                    ? false
+                                    : reader.GetInt32(reader.GetOrdinal("enabled")) == 1;
+
+                                model.enabled_sensitivity = reader.IsDBNull(reader.GetOrdinal("enabled_sensitivity"))
+                                    ? "0"
+                                    : reader.GetString(reader.GetOrdinal("enabled_sensitivity"));
+
+                                model.TimeInMinutes = reader.IsDBNull(reader.GetOrdinal("TimeInMinutes"))
+                                    ? TimeSpan.Zero
+                                    : reader.GetTimeSpan(reader.GetOrdinal("TimeInMinutes"));
+
+                                model.Condition_Trigger = reader.IsDBNull(reader.GetOrdinal("Condition_Trigger"))
+                                    ? "0"
+                                    : reader.GetString(reader.GetOrdinal("Condition_Trigger"));
+
+                                model.Remarks = reader.IsDBNull(reader.GetOrdinal("Remarks"))
+                                    ? "0"
+                                    : reader.GetString(reader.GetOrdinal("Remarks"));
+                            }
+                        }
+                    }
+                }
+
+                // ✅ ADD NEW MODE (based on unitName + category)
+                else if (!string.IsNullOrEmpty(unitName) && !string.IsNullOrEmpty(category))
                 {
                     string sql = "SELECT * FROM Settings WHERE UnitName = @unitName AND Category = @category";
                     using (var cmd = new MySqlCommand(sql, conn))
@@ -415,6 +473,7 @@ namespace Cold_Storage_Unit.Controllers
                             {
                                 model.Id = reader.GetInt32(reader.GetOrdinal("id"));
                                 model.UnitName = reader.GetString(reader.GetOrdinal("UnitName"));
+                                model.Category = reader.GetString(reader.GetOrdinal("Category"));
                                 model.threshold = reader.IsDBNull(reader.GetOrdinal("threshold")) ? 0 : reader.GetDouble(reader.GetOrdinal("threshold"));
                                 model.message_display = reader.IsDBNull(reader.GetOrdinal("message_display")) ? "" : reader.GetString(reader.GetOrdinal("message_display"));
                                 model.enabled = reader.IsDBNull(reader.GetOrdinal("enabled")) ? false : reader.GetInt32(reader.GetOrdinal("enabled")) == 1;
@@ -422,7 +481,6 @@ namespace Cold_Storage_Unit.Controllers
                                 model.TimeInMinutes = reader.IsDBNull(reader.GetOrdinal("TimeInMinutes")) ? TimeSpan.Zero : reader.GetTimeSpan(reader.GetOrdinal("TimeInMinutes"));
                                 model.Condition_Trigger = reader.IsDBNull(reader.GetOrdinal("Condition_Trigger")) ? "" : reader.GetString(reader.GetOrdinal("Condition_Trigger"));
                                 model.Remarks = reader.IsDBNull(reader.GetOrdinal("Remarks")) ? "" : reader.GetString(reader.GetOrdinal("Remarks"));
-                                model.Category = category;
                             }
                             else
                             {
@@ -433,7 +491,7 @@ namespace Cold_Storage_Unit.Controllers
                     }
                 }
 
-                // Load filtered settings for table display
+                // ✅ Load allSettings for table display (can be filtered)
                 string query = "SELECT * FROM Settings WHERE 1=1";
                 var cmdSettings = new MySqlCommand();
                 cmdSettings.Connection = conn;
@@ -458,64 +516,91 @@ namespace Cold_Storage_Unit.Controllers
                     {
                         allSettings.Add(new Alertempareture
                         {
-                            Id = reader.GetInt32("id"),
-                            UnitName = reader.GetString("UnitName"),
-                            Category = reader.GetString("Category"),
-                            threshold = reader.IsDBNull(reader.GetOrdinal("threshold")) ? 0 : Math.Round(reader.GetDouble(reader.GetOrdinal("threshold")), 2),
-                            message_display = reader.IsDBNull(reader.GetOrdinal("message_display")) ? "" : reader.GetString("message_display"),
-                            Condition_Trigger = reader.IsDBNull(reader.GetOrdinal("Condition_Trigger")) ? "" : reader.GetString("Condition_Trigger"),
-                            enabled_sensitivity = reader.IsDBNull(reader.GetOrdinal("enabled_sensitivity")) ? "" : reader.GetString("enabled_sensitivity"),
-                            TimeInMinutes = reader.IsDBNull(reader.GetOrdinal("TimeInMinutes")) ? TimeSpan.Zero : reader.GetTimeSpan(reader.GetOrdinal("TimeInMinutes")),
-                            Remarks = reader.IsDBNull(reader.GetOrdinal("Remarks")) ? "" : reader.GetString("Remarks"),
-                            enabled = reader.IsDBNull(reader.GetOrdinal("enabled")) ? false : reader.GetInt32("enabled") == 1,
+                            Id = reader.IsDBNull(reader.GetOrdinal("id"))
+                                ? 0
+                                : reader.GetInt32(reader.GetOrdinal("id")),
+
+                            UnitName = reader.IsDBNull(reader.GetOrdinal("UnitName"))
+                                ? "0"
+                                : reader.GetString(reader.GetOrdinal("UnitName")),
+
+                            Category = reader.IsDBNull(reader.GetOrdinal("Category"))
+                                ? "0"
+                                : reader.GetString(reader.GetOrdinal("Category")),
+
+                            threshold = reader.IsDBNull(reader.GetOrdinal("threshold"))
+                                ? 0
+                                : Math.Round(reader.GetDouble(reader.GetOrdinal("threshold")), 2),
+
+                            message_display = reader.IsDBNull(reader.GetOrdinal("message_display"))
+                                ? "0"
+                                : reader.GetString(reader.GetOrdinal("message_display")),
+
+                            Condition_Trigger = reader.IsDBNull(reader.GetOrdinal("Condition_Trigger"))
+                                ? "0"
+                                : reader.GetString(reader.GetOrdinal("Condition_Trigger")),
+
+                            enabled_sensitivity = reader.IsDBNull(reader.GetOrdinal("enabled_sensitivity"))
+                                ? "0"
+                                : reader.GetString(reader.GetOrdinal("enabled_sensitivity")),
+
+                            TimeInMinutes = reader.IsDBNull(reader.GetOrdinal("TimeInMinutes"))
+                                ? TimeSpan.Zero
+                                : reader.GetTimeSpan(reader.GetOrdinal("TimeInMinutes")),
+
+                            Remarks = reader.IsDBNull(reader.GetOrdinal("Remarks"))
+                                ? "0"
+                                : reader.GetString(reader.GetOrdinal("Remarks")),
+
+                            enabled = reader.IsDBNull(reader.GetOrdinal("enabled"))
+                                ? false
+                                : reader.GetInt32(reader.GetOrdinal("enabled")) == 1,
                         });
                     }
+
                 }
-            } // end using connection
+            }
 
-            // Populate dropdown lists from DB values
-            ViewBag.UnitNames = new SelectList(units, unitName);
-            ViewBag.Categories = new SelectList(categories, category);
+            // Setup dropdowns
+            ViewBag.UnitNames = new SelectList(units, model.UnitName);
+            ViewBag.Categories = new SelectList(categories, model.Category);
 
-            // Map Category to AlertName patterns
+            // Filter AlertDefinitions by Category
             var categoryAlertMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "Temperature", new List<string> { "A3H", "A3L", "A7H", "A7L" } },
-                { "Humidity", new List<string> { "A2H", "A2L" } },
-                { "CO2", new List<string> { "A1H", "A1L" } },
-                { "Ethylene", new List<string> { "A4H", "A4L" } },
-                { "Fan", new List<string> { "A6H", "A6L" } },
-                { "Compressor", new List<string> { "A8" } },
-                { "Sensor", new List<string> { "A9" } },
-                { "Data", new List<string> { "A10" } },
-                { "Door", new List<string> { "A5H" } }
-            };
+    {
+        { "Temperature", new List<string> { "A3H", "A3L", "A7H", "A7L" } },
+        { "Humidity", new List<string> { "A2H", "A2L" } },
+        { "CO2", new List<string> { "A1H", "A1L" } },
+        { "Ethylene", new List<string> { "A4H", "A4L" } },
+        { "Fan", new List<string> { "A6H", "A6L" } },
+        { "Door", new List<string> { "A5H" } }
+    };
 
-            var selectedCategory = category ?? "";
+            var selectedCategory = model.Category ?? category ?? "";
             var filteredAlertNames = categoryAlertMap.ContainsKey(selectedCategory)
                 ? categoryAlertMap[selectedCategory]
                 : new List<string>();
-
             // Full alert definitions
             var allAlertDefinitions = new List<AlertDefinition>
-            {
-                new AlertDefinition { AlertName = "A1H", MessageDisplay = "High CO₂ Level Alert", ConditionTrigger = "CO₂ > 1200 ppm", Severity = "High", Remarks = "Risk of mold, spoilage" },
-                new AlertDefinition { AlertName = "A1L", MessageDisplay = "Low CO₂ Level Alert", ConditionTrigger = "CO₂ < 300 ppm", Severity = "Low", Remarks = "May indicate ventilation overactive" },
-                new AlertDefinition { AlertName = "A2H", MessageDisplay = "High Humidity Alert", ConditionTrigger = "Humidity > 90%", Severity = "Medium", Remarks = "Risk of mold growth" },
-                new AlertDefinition { AlertName = "A2L", MessageDisplay = "Low Humidity Alert", ConditionTrigger = "Humidity < 70%", Severity = "Medium", Remarks = "Risk of dehydration/dryness" },
-                new AlertDefinition { AlertName = "A3H", MessageDisplay = "High Temperature Alert", ConditionTrigger = "Temp > 13°C", Severity = "High", Remarks = "Risk of spoilage" },
-                new AlertDefinition { AlertName = "A3L", MessageDisplay = "Low Temperature Alert", ConditionTrigger = "Temp < 11°C", Severity = "Medium", Remarks = "Risk of chilling injury (blackening)" },
-                new AlertDefinition { AlertName = "A4H", MessageDisplay = "High Ethylene Level Alert", ConditionTrigger = "Ethylene > 2 ppm", Severity = "High", Remarks = "Causes premature ripening" },
-                new AlertDefinition { AlertName = "A4L", MessageDisplay = "Low Ethylene Level Alert", ConditionTrigger = "Ethylene < 0.5 ppm", Severity = "Low", Remarks = "Ripening may be delayed" },
-                new AlertDefinition { AlertName = "A5H", MessageDisplay = "Door Open Too Long Alert", ConditionTrigger = "Door open > 2 minutes", Severity = "Medium", Remarks = "Energy loss, environment disruption" },
-                new AlertDefinition { AlertName = "A6H", MessageDisplay = "Fan Not Running Alert", ConditionTrigger = "Fan speed = 0 when CO₂/Ethylene high", Severity = "Critical", Remarks = "Ventilation failure" },
-                new AlertDefinition { AlertName = "A6L", MessageDisplay = "Fan Over-Running Alert", ConditionTrigger = "Fan speed unusually high (> expected)", Severity = "Low", Remarks = "Fan overwork or misconfigured" },
-                new AlertDefinition { AlertName = "A7H", MessageDisplay = "Rapid Temperature Increase", ConditionTrigger = "ΔTemp > +2°C in 5 minutes", Severity = "Medium", Remarks = "Possible cooling failure" },
-                new AlertDefinition { AlertName = "A7L", MessageDisplay = "Rapid Temperature Drop", ConditionTrigger = "ΔTemp < -2°C in 5 minutes", Severity = "Medium", Remarks = "Overcooling (risk of chilling injury)" },
-                new AlertDefinition { AlertName = "A8", MessageDisplay = "Compressor Irregularity Alert", ConditionTrigger = "Unexpected compressor ON/OFF cycles", Severity = "Medium", Remarks = "Maintenance needed" },
-                new AlertDefinition { AlertName = "A9", MessageDisplay = "Sensor Failure Alert", ConditionTrigger = "No data / invalid readings", Severity = "High", Remarks = "Critical for monitoring reliability" },
-                new AlertDefinition { AlertName = "A10", MessageDisplay = "Data Not Received Alert", ConditionTrigger = "No data push within 5 minutes", Severity = "High", Remarks = "May indicate communication failure" }
-            };
+{
+    new AlertDefinition { AlertName = "A1H", MessageDisplay = "High CO₂ Level Alert", ConditionTrigger = "CO₂ > 1200 ppm", Severity = "High" },
+    new AlertDefinition { AlertName = "A1L", MessageDisplay = "Low CO₂ Level Alert", ConditionTrigger = "CO₂ < 300 ppm", Severity = "Low" },
+    new AlertDefinition { AlertName = "A2H", MessageDisplay = "High Humidity Alert", ConditionTrigger = "Humidity > 90%", Severity = "Medium" },
+    new AlertDefinition { AlertName = "A2L", MessageDisplay = "Low Humidity Alert", ConditionTrigger = "Humidity < 70%", Severity = "Medium" },
+    new AlertDefinition { AlertName = "A3H", MessageDisplay = "High Temperature Alert", ConditionTrigger = "Temp > 13°C", Severity = "High" },
+    new AlertDefinition { AlertName = "A3L", MessageDisplay = "Low Temperature Alert", ConditionTrigger = "Temp < 11°C", Severity = "Medium" },
+    new AlertDefinition { AlertName = "A4H", MessageDisplay = "High Ethylene Level Alert", ConditionTrigger = "Ethylene > 2 ppm", Severity = "High" },
+    new AlertDefinition { AlertName = "A4L", MessageDisplay = "Low Ethylene Level Alert", ConditionTrigger = "Ethylene < 0.5 ppm", Severity = "Low" },
+    new AlertDefinition { AlertName = "A5H", MessageDisplay = "Door Open Too Long Alert", ConditionTrigger = "Door open > 2 minutes", Severity = "Medium" },
+    new AlertDefinition { AlertName = "A6H", MessageDisplay = "Fan Not Running Alert", ConditionTrigger = "Fan speed = 0 when CO₂/Ethylene high", Severity = "Critical" },
+    new AlertDefinition { AlertName = "A6L", MessageDisplay = "Fan Over-Running Alert", ConditionTrigger = "Fan speed unusually high (> expected)", Severity = "Low" },
+    new AlertDefinition { AlertName = "A7H", MessageDisplay = "Rapid Temperature Increase", ConditionTrigger = "ΔTemp > +2°C in 5 minutes", Severity = "Medium" },
+    new AlertDefinition { AlertName = "A7L", MessageDisplay = "Rapid Temperature Drop", ConditionTrigger = "ΔTemp < -2°C in 5 minutes", Severity = "Medium" },
+    new AlertDefinition { AlertName = "A8", MessageDisplay = "Compressor Irregularity Alert", ConditionTrigger = "Unexpected compressor ON/OFF cycles", Severity = "Medium" },
+    new AlertDefinition { AlertName = "A9", MessageDisplay = "Sensor Failure Alert", ConditionTrigger = "No data / invalid readings", Severity = "High" },
+    new AlertDefinition { AlertName = "A10", MessageDisplay = "Data Not Received Alert", ConditionTrigger = "No data push within 5 minutes", Severity = "High" }
+};
+
 
             // Filter alert definitions by selected category
             var filteredAlertDefinitions = allAlertDefinitions
@@ -650,6 +735,37 @@ namespace Cold_Storage_Unit.Controllers
 
             TempData["SuccessMessage"] = $"Setting for '{unitName}' in category '{category}' has been deleted.";
             return RedirectToAction("EditTemperature");
+        }
+
+        public JsonResult GetRemarksByCategory(string category)
+        {
+            List<Remark> remarks = new List<Remark>();
+
+           var connString = ConfigurationManager.ConnectionStrings["MySqlConnection"].ConnectionString;
+
+            using (var conn = new MySqlConnection(connString))
+            {
+                conn.Open();
+                string query = "SELECT * FROM Remarks WHERE Category = @Category";
+                using (var cmd = new MySqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Category", category);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            remarks.Add(new Remark
+                            {
+                                Id = Convert.ToInt32(reader["Id"]),
+                                RemarkText = reader["Remark"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+
+            return Json(remarks, JsonRequestBehavior.AllowGet);
         }
     }
 }

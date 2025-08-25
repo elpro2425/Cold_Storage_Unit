@@ -3,6 +3,8 @@
 @{
     ViewBag.Title = "Banana Cold Storage";
 }
+
+
 @{
     var hasFilters = !string.IsNullOrEmpty(ViewBag.SelectedName as string) ||
                      !string.IsNullOrEmpty(ViewBag.StartDate as string) ||
@@ -14,6 +16,12 @@
                                !string.IsNullOrEmpty(ViewBag.StartDate1 as string) ||
                                !string.IsNullOrEmpty(ViewBag.EndDate1 as string);
 }
+@{
+    var hasAlertsFilters = !string.IsNullOrEmpty(ViewBag.SelectedSeverity as string) ||
+                           !string.IsNullOrEmpty(ViewBag.StartDate2 as string) ||
+                           !string.IsNullOrEmpty(ViewBag.EndDate2 as string);
+}
+
 
 <div class="container mt-4 gap-1">
     <div class="row">
@@ -33,13 +41,61 @@
                             <div class="col-md-12">
                                 <label for="tableType" class="form-label"><strong>Sort By Table</strong></label>
                                 <select id="tableType" name="tableType" class="form-control" onchange="this.form.submit()">
-                                    <option value="">-- Select --</option>
-                                    <option value="SensorData" @(selectedTableType == "SensorData" ? "selected" : "")>SensorData</option>
-                                    <option value="DoorStatus" @(selectedTableType == "DoorStatus" ? "selected" : "")>DoorStatus</option>
+                                    <option value="Select">Select</option>
+                                    <option value="All" @(ViewBag.TableType == "All" ? "selected" : "")>All</option>
+                                    <option value="SensorData" @(ViewBag.TableType == "SensorData" ? "selected" : "")>Sensor Data</option>
+                                    <option value="DoorStatus" @(ViewBag.TableType == "DoorStatus" ? "selected" : "")>Door Status</option>
+                                    <option value="Alerts" @(ViewBag.TableType == "Alerts" ? "selected" : "")>Alerts</option>
                                 </select>
                             </div>
                         </div>
-                        @if (selectedTableType == "SensorData")
+                        @if (selectedTableType == "All")
+                        {
+                            <!-- Filters -->
+                            <div class="row my-3">
+                                <div class="col-md-4">
+                                    <label><strong>Name</strong></label>
+                                    <select id="name" name="name" class="form-control">
+                                        <option value="">All</option>
+                                        @foreach (var item in ViewBag.Names as List<string>)
+                                        {
+                                            <option value="@item" @(item == (string)ViewBag.SelectedName ? "selected" : "")>@item</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label><strong>From</strong></label>
+                                    <input type="date" id="startDate" name="startDate" value="@(ViewBag.StartDate ?? "")" class="form-control" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label><strong>To</strong></label>
+                                    <input type="date" id="endDate" name="endDate" value="@(ViewBag.EndDate ?? "")" class="form-control" />
+                                </div>
+                            </div>
+
+                            if (Model.ColdStorageData != null && Model.ColdStorageData.Any())
+                            {
+                                <!-- ⬇️ Button row for All -->
+                                <div class="row mt-3">
+                                    <div class="d-flex flex-wrap gap-2 px-2">
+                                        <button type="submit" class="btn btn-primary">Fetch</button>
+                                        <!-- Summarize Button -->
+                                        <button type="submit" name="actionType" value="summarize" class="btn btn-info btn-m" formtarget="_blank">
+                                            <i class="fas fa-eye"></i> Summarize
+                                        </button>
+
+                                        <!-- PDF Button -->
+                                        <button type="submit" name="actionType" value="pdf" class="btn btn-warning btn-m">
+                                            <i class="fas fa-file-pdf"></i> PDF
+                                        </button>
+
+                                    </div>
+                                </div>
+                            }
+                        }
+
+
+                        else if (selectedTableType == "SensorData")
                         {
                             <!-- 🔼 Top filter row -->
                             <div class="row">
@@ -55,13 +111,12 @@
                                 </div>
                                 <div class="col-md-4">
                                     <label><strong>From</strong></label>
-                                    <input type="date" name="startDate" value="@(ViewBag.StartDate ?? "")" class="form-control" />
+                                    <input id="startDate" type="date" name="startDate" value="@(ViewBag.StartDate ?? "")" class="form-control" />
                                 </div>
                                 <div class="col-md-4">
                                     <label><strong>To</strong></label>
-                                    <input type="date" name="endDate" value="@(ViewBag.EndDate ?? "")" class="form-control" />
+                                    <input id="endDate" type="date" name="endDate" value="@(ViewBag.EndDate ?? "")" class="form-control" />
                                 </div>
-
                             </div>
 
                             <!-- ⬇️ Button row -->
@@ -70,7 +125,7 @@
 
                                 <div class="row mt-3">
                                     <div class="d-flex flex-wrap gap-2 px-2">
-                                        <button type="submit" class="btn btn-primary btn-sm flex-fill" style="min-width: 100px;">Sort</button>
+                                        <button id="view" type="submit" class="btn btn-primary btn-sm flex-fill" style="min-width: 100px;">Sort</button>
 
                                         <a class="btn btn-warning btn-sm flex-fill"
                                            style="min-width: 100px;"
@@ -137,197 +192,433 @@
                             }
                         }
 
+                        else if (selectedTableType == "Alerts")
+                        {
+                            <!-- 🔼 Top filter row -->
+                            <div class="row mt-4">
+                                <div class="col-md-4">
+                                    <label><strong>Severity</strong></label>
+                                    <select name="severity" class="form-control">
+                                        <option value="">All</option>
+                                        @foreach (var severity in (ViewBag.SeverityList as List<string>)?.Where(s => !string.IsNullOrEmpty(s)) ?? new List<string>())
+                                        {
+                                            <option value="@severity" @(severity == (string)ViewBag.SelectedSeverity ? "selected" : "")>@severity</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label><strong>From</strong></label>
+                                    <input type="date" name="startDate2" value="@(ViewBag.StartDate2 ?? "")" class="form-control" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label><strong>To</strong></label>
+                                    <input type="date" name="endDate2" value="@(ViewBag.EndDate2 ?? "")" class="form-control" />
+                                </div>
+                            </div>
+
+
+
+                            <!-- ⬇️ Button row -->
+                            if (Model.AlertsData != null && Model.AlertsData.Any())
+                            {
+                                <div class="row mt-3">
+                                    <div class="d-flex flex-wrap gap-2 px-2">
+                                        <button type="submit" class="btn btn-primary btn-sm flex-fill" style="min-width: 100px;">Sort</button>
+
+                                        <a class="btn btn-warning btn-sm flex-fill"
+                                           style="min-width: 100px;"
+                                           href="@Url.Action("GenerateAlertsPdfReport", "Reports", new { severity = ViewBag.SelectedSeverity,
+                                           startDate2 = ViewBag.StartDate2,
+                                           endDate2 = ViewBag.EndDate2 })">
+
+                                            <i class="fas fa-file-pdf"></i> PDF
+                                        </a>
+
+                                        <a class="btn btn-success btn-sm flex-fill"
+                                           style="min-width: 100px;"
+                                           href="@Url.Action("GenerateAlertsExcelReport", "Reports", new { severity = ViewBag.SelectedSeverity, startDate2 = ViewBag.StartDate2, endDate2 = ViewBag.EndDate2 })">
+                                            <i class="fas fa-file-excel"></i> Excel
+                                        </a>
+                                    </div>
+                                </div>
+                            }
+
+                        }
                     </form>
                 </div>
             </div>
         </div>
 
         <div class="col-md-6">
-            @if (selectedTableType == "SensorData")
+            @if (selectedTableType == "All")
+            {  // Only show the Alerts Summary card if both From and To dates are selected
+                if (!string.IsNullOrEmpty(ViewBag.StartDate as string) &&
+                    !string.IsNullOrEmpty(ViewBag.EndDate as string))
+                {
+                    <div class="card w-100 mt-md-0 mt-4">
+                        <div class="card-header bg-info text-white fs-5">
+                            Summary Metrics
+                        </div>
+                        <div class="card-body">
+                            @if (hasFilters && Model.ColdStorageData != null && Model.ColdStorageData.Any())
+                            {
+                                var avgTemp = Model.ColdStorageData.Average(x => x.Temperature);
+                                var minTemp = Model.ColdStorageData.Min(x => x.Temperature);
+                                var maxTemp = Model.ColdStorageData.Max(x => x.Temperature);
+
+                                var avgHum = Model.ColdStorageData.Average(x => x.Humidity);
+                                var minHum = Model.ColdStorageData.Min(x => x.Humidity);
+                                var maxHum = Model.ColdStorageData.Max(x => x.Humidity);
+
+                                var avgEth = Model.ColdStorageData.Average(x => x.EthyleneLevel);
+                                var minEth = Model.ColdStorageData.Min(x => x.EthyleneLevel);
+                                var maxEth = Model.ColdStorageData.Max(x => x.EthyleneLevel);
+
+                                var avgco2 = Model.ColdStorageData.Average(x => x.Co2Level);
+                                var minco2 = Model.ColdStorageData.Min(x => x.Co2Level);
+                                var maxco2 = Model.ColdStorageData.Max(x => x.Co2Level);
+
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th>Temperature (°C)</th>
+                                                <th>Humidity (%)</th>
+                                                <th>CO2(ppm)</th>
+                                                <th>Ethylene (ppm)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Average</strong></td>
+                                                <td>@(Math.Truncate(avgTemp * 10) / 10)</td>
+                                                <td>@(Math.Truncate(avgHum * 10) / 10)</td>
+                                                <td>@(Math.Truncate(avgco2 * 10) / 10)</td>
+                                                <td>@avgEth.ToString("0.00")</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Minimum</strong></td>
+                                                <td>@(Math.Truncate(minTemp * 10) / 10)</td>
+                                                <td>@(Math.Truncate(minHum * 10) / 10)</td>
+                                                <td>@(Math.Truncate(minco2 * 10) / 10)</td>
+                                                <td>@minEth.ToString("0.00")</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Maximum</strong></td>
+                                                <td>@(Math.Truncate(maxTemp * 10) / 10)</td>
+                                                <td>@(Math.Truncate(maxHum * 10) / 10)</td>
+                                                <td>@(Math.Truncate(maxco2 * 10) / 10)</td>
+                                                <td>@maxEth.ToString("0.00")</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+
+                        </div>
+                    </div>
+                }
+            }
+
+            else if (selectedTableType == "SensorData")
             {
-                <div class="card w-100 mt-md-0 mt-4">
-                    <div class="card-header bg-info text-white fs-5">
-                        Summary Metrics
+                // Only show the Alerts Summary card if both From and To dates are selected
+                if (!string.IsNullOrEmpty(ViewBag.StartDate as string) &&
+                    !string.IsNullOrEmpty(ViewBag.EndDate as string))
+                {
+                    <div class="card w-100 mt-md-0 mt-4">
+                        <div class="card-header bg-info text-white fs-5">
+                            Summary Metrics
+                        </div>
+                        <div class="card-body">
+                            @if (hasFilters && Model.ColdStorageData != null && Model.ColdStorageData.Any())
+                            {
+                                var avgTemp = Model.ColdStorageData.Average(x => x.Temperature);
+                                var minTemp = Model.ColdStorageData.Min(x => x.Temperature);
+                                var maxTemp = Model.ColdStorageData.Max(x => x.Temperature);
+
+                                var avgHum = Model.ColdStorageData.Average(x => x.Humidity);
+                                var minHum = Model.ColdStorageData.Min(x => x.Humidity);
+                                var maxHum = Model.ColdStorageData.Max(x => x.Humidity);
+
+                                var avgEth = Model.ColdStorageData.Average(x => x.EthyleneLevel);
+                                var minEth = Model.ColdStorageData.Min(x => x.EthyleneLevel);
+                                var maxEth = Model.ColdStorageData.Max(x => x.EthyleneLevel);
+
+                                var avgco2 = Model.ColdStorageData.Average(x => x.Co2Level);
+                                var minco2 = Model.ColdStorageData.Min(x => x.Co2Level);
+                                var maxco2 = Model.ColdStorageData.Max(x => x.Co2Level);
+
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th>Temperature (°C)</th>
+                                                <th>Humidity (%)</th>
+                                                <th>CO2(ppm)</th>
+                                                <th>Ethylene (ppm)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Average</strong></td>
+                                                <td>@(Math.Truncate(avgTemp * 10) / 10)</td>
+                                                <td>@(Math.Truncate(avgHum * 10) / 10)</td>
+                                                <td>@(Math.Truncate(avgco2 * 10) / 10)</td>
+                                                <td>@avgEth.ToString("0.00")</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Minimum</strong></td>
+                                                <td>@(Math.Truncate(minTemp * 10) / 10)</td>
+                                                <td>@(Math.Truncate(minHum * 10) / 10)</td>
+                                                <td>@(Math.Truncate(minco2 * 10) / 10)</td>
+                                                <td>@minEth.ToString("0.00")</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Maximum</strong></td>
+                                                <td>@(Math.Truncate(maxTemp * 10) / 10)</td>
+                                                <td>@(Math.Truncate(maxHum * 10) / 10)</td>
+                                                <td>@(Math.Truncate(maxco2 * 10) / 10)</td>
+                                                <td>@maxEth.ToString("0.00")</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+
+                        </div>
                     </div>
-                    <div class="card-body">
-                        @if (hasFilters && Model.ColdStorageData != null && Model.ColdStorageData.Any())
-                        {
-                            var avgTemp = Model.ColdStorageData.Average(x => x.Temperature);
-                            var minTemp = Model.ColdStorageData.Min(x => x.Temperature);
-                            var maxTemp = Model.ColdStorageData.Max(x => x.Temperature);
-
-                            var avgHum = Model.ColdStorageData.Average(x => x.Humidity);
-                            var minHum = Model.ColdStorageData.Min(x => x.Humidity);
-                            var maxHum = Model.ColdStorageData.Max(x => x.Humidity);
-
-                            var avgEth = Model.ColdStorageData.Average(x => x.EthyleneLevel);
-                            var minEth = Model.ColdStorageData.Min(x => x.EthyleneLevel);
-                            var maxEth = Model.ColdStorageData.Max(x => x.EthyleneLevel);
-
-                            var avgco2 = Model.ColdStorageData.Average(x => x.Co2Level);
-                            var minco2 = Model.ColdStorageData.Min(x => x.Co2Level);
-                            var maxco2 = Model.ColdStorageData.Max(x => x.Co2Level);
-
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Metric</th>
-                                            <th>Temperature (°C)</th>
-                                            <th>Humidity (%)</th>
-                                            <th>CO2(ppm)</th>
-                                            <th>Ethylene (ppm)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><strong>Average</strong></td>
-                                            <td>@(Math.Truncate(avgTemp * 10) / 10)</td>
-                                            <td>@(Math.Truncate(avgHum * 10) / 10)</td>
-                                            <td>@(Math.Truncate(avgco2 * 10) / 10)</td>
-                                            <td>@(Math.Truncate(avgEth * 10) / 10)</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Minimum</strong></td>
-                                            <td>@(Math.Truncate(minTemp * 10) / 10)</td>
-                                            <td>@(Math.Truncate(minHum * 10) / 10)</td>
-                                            <td>@(Math.Truncate(minco2 * 10) / 10)</td>
-                                            <td>@(Math.Truncate(minEth * 10) / 10)</td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Maximum</strong></td>
-                                            <td>@(Math.Truncate(maxTemp * 10) / 10)</td>
-                                            <td>@(Math.Truncate(maxHum * 10) / 10)</td>
-                                            <td>@(Math.Truncate(maxco2 * 10) / 10)</td>
-                                            <td>@(Math.Truncate(maxEth * 10) / 10)</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                        else if (hasFilters)
-                        {
-                            <div class="alert alert-warning">No data found for the selected filters.</div>
-                        }
-                    </div>
-                </div>
+                }
             }
 
             else if (selectedTableType == "DoorStatus")
             {
-                <!-- 📊 Right Side: Summary Table -->
+                // Only show the Alerts Summary card if both From and To dates are selected
+                if (!string.IsNullOrEmpty(ViewBag.StartDate1 as string) &&
+                    !string.IsNullOrEmpty(ViewBag.EndDate1 as string))
+                {
+                    <div class="card w-100 mt-md-0 mt-4">
+                        <div class="card-header bg-info text-white fs-5">
+                            Door Status Summary
+                        </div>
+                        <div class="card-body">
+                            @if (Model.DoorStatusData != null && Model.DoorStatusData.Any())
+                            {
+                                var total = Model.DoorStatusData.Count();
+                                var openCount = Model.DoorStatusData.Count(x => x.Status == "Open");
+                                var closeCount = Model.DoorStatusData.Count(x => x.Status == "Close");
 
-                <div class="card w-100 mt-md-0 mt-4">
-                    <div class="card-header bg-info text-white fs-5">
-                        Door Status Summary
+                                var firstOpen = Model.DoorStatusData
+                                    .Where(x => x.Status == "Open")
+                                    .OrderBy(x => DateTime.Parse(x.Hardwaredate))
+                                    .FirstOrDefault()?.Hardwaredate;
+
+                                var lastClose = Model.DoorStatusData
+                                    .Where(x => x.Status == "Close")
+                                    .OrderByDescending(x => DateTime.Parse(x.Hardwaredate))
+                                    .FirstOrDefault()?.Hardwaredate;
+
+                                var uniqueDays = Model.DoorStatusData
+                                    .Select(x => DateTime.TryParse(x.Hardwaredate, out var dt) ? dt.Date : (DateTime?)null)
+                                    .Where(d => d.HasValue)
+                                    .Select(d => d.Value)
+                                    .Distinct()
+                                    .Count();
+
+                                string mostFrequentStatus = openCount > closeCount ? "Open" : (closeCount > openCount ? "Close" : "Equal");
+
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th>Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td><strong>Total Records</strong></td><td>@total</td></tr>
+                                            <tr><td><strong>Total Open Events</strong></td><td>@openCount</td></tr>
+                                            <tr><td><strong>Total Close Events</strong></td><td>@closeCount</td></tr>
+                                            <tr><td><strong>First Door Open</strong></td><td>@(firstOpen != null ? DateTime.Parse(firstOpen).ToString("g") : "-")</td></tr>
+                                            <tr><td><strong>Last Door Close</strong></td><td>@(lastClose != null ? DateTime.Parse(lastClose).ToString("g") : "-")</td></tr>
+                                            <tr><td><strong>Unique Days of Activity</strong></td><td>@uniqueDays</td></tr>
+                                            <tr><td><strong>Most Frequent Status</strong></td><td>@mostFrequentStatus</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else if (ViewBag.Selectedstatus != null || ViewBag.StartDate1 != null || ViewBag.EndDate1 != null)
+                            {
+                                <div class="alert alert-warning mt-3">No door status data found for the selected filters.</div>
+                            }
+                        </div>
                     </div>
-                    <div class="card-body">
-                        @if (Model.DoorStatusData != null && Model.DoorStatusData.Any())
-                        {
-                            var total = Model.DoorStatusData.Count();
-                            var openCount = Model.DoorStatusData.Count(x => x.Status == "Open");
-                            var closeCount = Model.DoorStatusData.Count(x => x.Status == "Close");
+                }
+            }
+            else if (selectedTableType == "Alerts")
+            {
+                // Only show the Alerts Summary card if both From and To dates are selected
+                if (!string.IsNullOrEmpty(ViewBag.StartDate2 as string) &&
+                    !string.IsNullOrEmpty(ViewBag.EndDate2 as string))
+                {
+                    <div class="card w-100 mt-md-0 mt-4">
+                        <div class="card-body">
 
-                            var firstOpen = Model.DoorStatusData
-                                .Where(x => x.Status == "Open")
-                                .OrderBy(x => DateTime.Parse(x.Hardwaredate))
-                                .FirstOrDefault()?.Hardwaredate;
+                            @if (Model.AlertsData != null && Model.AlertsData.Any())
+                            {
+                                var total = Model.AlertsData.Count();
+                                var highSeverity = Model.AlertsData.Count(x => x.Severity == "High");
+                                var mediumSeverity = Model.AlertsData.Count(x => x.Severity == "Medium");
+                                var lowSeverity = Model.AlertsData.Count(x => x.Severity == "Low");
 
-                            var lastClose = Model.DoorStatusData
-                                .Where(x => x.Status == "Close")
-                                .OrderByDescending(x => DateTime.Parse(x.Hardwaredate))
-                                .FirstOrDefault()?.Hardwaredate;
+                                var firstAlert = Model.AlertsData
+                                    .OrderBy(x => DateTime.Parse(x.Alert_Date))
+                                    .FirstOrDefault()?.Alert_Date;
 
-                            var uniqueDays = Model.DoorStatusData
-                                .Select(x => DateTime.TryParse(x.Hardwaredate, out var dt) ? dt.Date : (DateTime?)null)
-                                .Where(d => d.HasValue)
-                                .Select(d => d.Value)
-                                .Distinct()
-                                .Count();
+                                var lastAlert = Model.AlertsData
+                                    .OrderByDescending(x => DateTime.Parse(x.Alert_Date))
+                                    .FirstOrDefault()?.Alert_Date;
 
-                            string mostFrequentStatus = openCount > closeCount ? "Open" : (closeCount > openCount ? "Close" : "Equal");
 
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Metric</th>
-                                            <th>Value</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td><strong>Total Records</strong></td><td>@total</td></tr>
-                                        <tr><td><strong>Total Open Events</strong></td><td>@openCount</td></tr>
-                                        <tr><td><strong>Total Close Events</strong></td><td>@closeCount</td></tr>
-                                        <tr><td><strong>First Door Open</strong></td><td>@(firstOpen != null ? DateTime.Parse(firstOpen).ToString("g") : "-")</td></tr>
-                                        <tr><td><strong>Last Door Close</strong></td><td>@(lastClose != null ? DateTime.Parse(lastClose).ToString("g") : "-")</td></tr>
-                                        <tr><td><strong>Unique Days of Activity</strong></td><td>@uniqueDays</td></tr>
-                                        <tr><td><strong>Most Frequent Status</strong></td><td>@mostFrequentStatus</td></tr>
-                                    </tbody>
-                                </table>
+                                <div class="card-header bg-danger text-white fs-5">
+                                    Alerts Summary
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th>Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td><strong>Total Alerts</strong></td><td>@total</td></tr>
+                                            <tr><td><strong>High Severity</strong></td><td>@highSeverity</td></tr>
+                                            <tr><td><strong>Medium Severity</strong></td><td>@mediumSeverity</td></tr>
+                                            <tr><td><strong>Low Severity</strong></td><td>@lowSeverity</td></tr>
+                                            <tr><td><strong>First Alert</strong></td><td>@(firstAlert != null ? DateTime.Parse(firstAlert).ToString("g") : "-")</td></tr>
+                                            <tr><td><strong>Last Alert</strong></td><td>@(lastAlert != null ? DateTime.Parse(lastAlert).ToString("g") : "-")</td></tr>
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+
+                        </div>
+                    </div>
+                }
+            }
+
+        </div>
+
+        @if (selectedTableType == "All")
+        {
+            if (!string.IsNullOrEmpty(ViewBag.StartDate as string) &&
+        !string.IsNullOrEmpty(ViewBag.EndDate as string))
+            {
+                <!-- Row 3: Charts container -->
+                <div id="chartsContainer" class="container my-4" style="display:none;">
+                    <div class="row g-3">
+                        <!-- Line Chart full width -->
+                        <div class="col-12">
+                            <div class="border rounded p-3 bg-white shadow-sm" style="height:250px;">
+                                <h6 class="text-success mb-2">Performance</h6>
+                                <div class="h-100">
+                                    <canvas id="lineChart" class="w-100 h-100"></canvas>
+                                </div>
                             </div>
-                        }
-                        else if (ViewBag.Selectedstatus != null || ViewBag.StartDate1 != null || ViewBag.EndDate1 != null)
-                        {
-                            <div class="alert alert-warning mt-3">No door status data found for the selected filters.</div>
-                        }
+                        </div>
+
+                        <!-- Bar Chart -->
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-white shadow-sm" style="height:300px;">
+                                <h6 class="text-primary mb-3">Alert Type Distribution</h6>
+                                <div class="h-100">
+                                    <canvas id="barChart" class="w-100 h-100"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <!-- Pie Chart -->
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 bg-white shadow-sm d-flex flex-column align-items-center" style="height:300px;">
+                                <h6 class="text-warning mb-1">Alert Severity Breakdown</h6>
+                                <div class="flex-fill d-flex justify-content-center align-items-center">
+                                    <canvas id="pieChart" style="max-width:300px; max-height:300px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+
                     </div>
                 </div>
 
             }
-        </div>
-        <div class="table-responsive">
-            <!-- 🔁 Conditional UI blocks based on selectedTableType -->
-            @if (selectedTableType == "SensorData")
-            {
+        }
 
-                <table class="table table-bordered table-striped mt-3" id="coldstorage">
-                    <thead class="thead-dark">
-                        <tr class="text-center">
-                            <th>Id</th>
-                            <th>Name</th>
-                            <th>Temperature(°C)</th>
-                            <th>Humidity(%)</th>
-                            <th>PowerStatus</th>
-                            <th>DoorStatus</th>
-                            <th>CO₂Level<br /> (ppm)</th>
-                            <th>Ethylene Level <br />(ppm)</th>
-                            <th>FanSpeed</th>
-                            <th>DateTime</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @{
-                            int id = 1;
-                            if (hasFilters && Model.ColdStorageData?.Any() == true)
-                            {
-                                foreach (var row in Model.ColdStorageData)
+        else if (selectedTableType == "SensorData")
+        {
+            // Only show the Alerts Summary card if both From and To dates are selected
+            if (!string.IsNullOrEmpty(ViewBag.StartDate as string) &&
+                !string.IsNullOrEmpty(ViewBag.EndDate as string))
+            {
+                <div class="table-responsive mt-3">
+                    <table id="coldstorage" class="table table-bordered table-striped" style="width:100%">
+                        <thead class="thead-dark">
+                            <tr class="text-center">
+                                <th>Id</th>
+                                <th>Name</th>
+                                <th>Temperature (°C)</th>
+                                <th>Humidity (%)</th>
+                                <th>Power Status</th>
+                                <th>Door Status</th>
+                                <th>CO₂(ppm)</th>
+                                <th>Ethylene (ppm)</th>
+                                <th>Fan Speed</th>
+                                <th>Date Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                int id = 1;
+                                if (hasFilters && Model.ColdStorageData?.Any() == true)
                                 {
-                                    <tr class="text-center">
-                                        <td>@id</td>
-                                        <td>@row.Name</td>
-                                        <td>@(Math.Truncate(row.Temperature * 10) / 10)</td>
-                                        <td>@(Math.Truncate(row.Humidity * 10) / 10)</td>
-                                        <td>@row.PowerStatus</td>
-                                        <td>@row.DoorStatus</td>
-                                        <td>@(Math.Truncate(row.Co2Level * 10) / 10)</td>
-                                        <td>@row.EthyleneLevel.ToString("F2")</td>
-                                        <td>@row.FanSpeed</td>
-                                        <td>@row.Hardwaredate</td>
-                                    </tr>
-                                    id++;
+                                    foreach (var row in Model.ColdStorageData)
+                                    {
+                                        <tr class="text-center">
+                                            <td>@id</td>
+                                            <td>@row.Name</td>
+                                            <td>@(Math.Truncate(row.Temperature * 10) / 10)</td>
+                                            <td>@(Math.Truncate(row.Humidity * 10) / 10)</td>
+                                            <td>@row.PowerStatus</td>
+                                            <td>@row.DoorStatus</td>
+                                            <td>@(Math.Truncate(row.Co2Level * 10) / 10)</td>
+                                            <td>@row.EthyleneLevel.ToString("F2")</td>
+                                            <td>@row.FanSpeed</td>
+                                            <td>@row.Hardwaredate</td>
+                                        </tr>
+                                        id++;
+                                    }
                                 }
                             }
-                        }
-                    </tbody>
-                </table>
-
+                        </tbody>
+                    </table>
+                </div>
             }
+        }
 
-            else if (selectedTableType == "DoorStatus")
+
+        else if (selectedTableType == "DoorStatus")
+        {
+            // Only show the Alerts Summary card if both From and To dates are selected
+            if (!string.IsNullOrEmpty(ViewBag.StartDate1 as string) &&
+                !string.IsNullOrEmpty(ViewBag.EndDate1 as string))
             {
 
-                <table class="table table-bordered table-striped mt-3" id="Doorstatus">
+                <table id="Doorstatus" class="table table-bordered table-striped" style="width:100%">
                     <thead class="thead-dark">
                         <tr class="text-center">
                             <th>Id</th>
@@ -355,34 +646,292 @@
                         }
                     </tbody>
                 </table>
+
             }
-        </div>
+
+        }
+
+        else if (selectedTableType == "Alerts")
+        {
+            // Only show the Alerts Summary card if both From and To dates are selected
+            if (!string.IsNullOrEmpty(ViewBag.StartDate2 as string) &&
+            !string.IsNullOrEmpty(ViewBag.EndDate2 as string))
+            {
+                <table id="Alerts" class="table table-bordered table-striped" style="width:100%">
+
+                    <thead class="thead-dark">
+                        <tr class="text-center">
+                            <th>ID</th>
+                            <th>Unit Name</th>
+                            <th>Alert Name</th>
+                            <th>Condition Trigger</th>
+                            <th>Severity</th>
+                            <th>Remarks</th>
+                            <th>Actual Value</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            int serial = 1;
+                            if (hasAlertsFilters && Model.AlertsData?.Any() == true)
+                            {
+                                foreach (var alert in Model.AlertsData)
+                                {
+                                    <tr class="text-center">
+                                        <td>@serial</td>
+                                        <td>@alert.UnitName</td>
+                                        <td>@alert.Alert_Name</td>
+                                        <td>@alert.Condition_Trigger</td>
+                                        <td>@alert.Severity</td>
+                                        <td>@alert.Remarks</td>
+                                        <td>@alert.Actual_Value</td>
+                                        <td>@alert.Alert_Date</td>
+                                    </tr>
+                                    serial++;
+                                }
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+
     </div>
 </div>
 
 
 
-<script>
-    $(document).ready(function () {
-        $('#coldstorage').DataTable({
-            "pageLength": 10,
-            "lengthMenu": [5, 10, 25, 50],
-            "order": [], // Disable initial sort
-            "language": {
-                "search": "Search:"
-            }
-        });
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
-        $('#Doorstatus').DataTable({
-            "pageLength": 10,
-            "lengthMenu": [5, 10, 25, 50],
-            "order": [], // Disable initial sort
-            "language": {
-                "search": "Search:"
+<script>
+$(document).ready(function() {
+    let lineChart, barChart, pieChart;
+    function createLineChart(labels, datasets) {
+        const ctx = document.getElementById('lineChart').getContext('2d');
+        if (lineChart) lineChart.destroy();
+
+        lineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets.map(ds => ({
+                    label: ds.label,
+                    data: ds.data,
+                    borderColor: ds.borderColor,
+                    fill: ds.fill,
+                    tension: 0.7
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 10,
+                        top: 5,
+                        bottom: 30 // extra bottom padding so labels fit
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 45, // rotate labels up to 45 degrees
+                            minRotation: 0,
+                            autoSkip: true,  // skip some labels if overlapping
+                            font: {
+                                size: 10      // smaller font to fit better
+                            }
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            boxWidth: 12,
+                            padding: 10
+                        }
+                    }
+                }
             }
         });
-    });
+    }
+
+    function createBarChart(labels, datasets) {
+        const ctx = document.getElementById('barChart').getContext('2d');
+        if (barChart) barChart.destroy();
+
+        barChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,   // ✅ sensor names only (e.g. Temp, Humidity...)
+                datasets: datasets // ✅ 3 datasets: Low, High, Avg
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: { left: 10, right: 10, top: 10, bottom: 30 }
+                },
+                scales: {
+                    x: {
+                        stacked: false, // side-by-side bars
+                        ticks: {
+                            maxRotation: 45,
+                            font: { size: 10 }
+                        },
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(200,200,200,0.3)' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { boxWidth: 12, padding: 10 }
+                    }
+                }
+            }
+        });
+    }
+
+
+    function createPieChart(labels, datasets) {
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        if (pieChart) pieChart.destroy();
+
+        pieChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: datasets.map(ds => ({
+                    data: ds.data,
+                    backgroundColor: ds.backgroundColor
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'left',
+                        labels: {
+                            boxWidth: 16,
+                            padding: 8,
+                            font: { size: 14 }
+                        }
+                    },
+                    datalabels: {
+                        color: '#000',
+                        font: {
+                            weight: 'bold',
+                            size: 12
+                        },
+                        formatter: (value, ctx) => {
+                            let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            if (sum === 0) return null; // avoid NaN
+                            let percentage = (value / sum * 100).toFixed(1);
+
+                            // hide if value = 0 OR percentage < 3%
+                            if (value === 0 || percentage < 3) return null;
+
+                            return percentage + "%";
+                        }
+                    }
+
+                }
+            },
+            plugins: [ChartDataLabels] // ✅ enable plugin
+        });
+    }
+
+
+    function loadCharts() {
+        const name = $('#name').val();
+        const startDate = $('#startDate').val();
+        const endDate = $('#endDate').val();
+
+        if (!startDate || !endDate) {
+            $('#chartsContainer').hide();
+            return; // Require both dates before loading charts
+        }
+
+        $.ajax({
+            url: '@Url.Action("GetChartData")',
+            type: 'GET',
+            data: { name: name, startDate: startDate, endDate: endDate },
+            success: function(res) {
+                if (res.hasData) {
+                    $('#chartsContainer').show();
+                    createLineChart(res.lineChart.labels, res.lineChart.datasets);
+                    createBarChart(res.barChart.labels, res.barChart.datasets);
+                    createPieChart(res.pieChart.labels, res.pieChart.datasets);
+                } else {
+                    $('#chartsContainer').hide();
+
+                }
+            },
+            error: function() {
+                $('#chartsContainer').hide();
+                alert('Error fetching chart data.');
+            }
+        });
+    }
+
+    // Trigger on filter change
+    $('#name, #startDate, #endDate').on('change', loadCharts);
+
+    // Initial load if dates already present
+    if ($('#startDate').val() && $('#endDate').val()) {
+        loadCharts();
+    }
+});
 </script>
+
+
+@section Scripts {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('#coldstorage').DataTable({
+                "pageLength": 10,
+                "lengthMenu": [5, 10, 25, 50],
+                "order": [],
+                "language": { "search": "Search:" },
+                "scrollX": true
+            });
+
+            $('#Doorstatus').DataTable({
+                "pageLength": 10,
+                "lengthMenu": [5, 10, 25, 50],
+                "order": [],
+                "language": { "search": "Search:" },
+                "scrollX": true
+            });
+
+            $('#Alerts').DataTable({
+                "pageLength": 10,
+                "lengthMenu": [5, 10, 25, 50],
+                "order": [],
+                "language": { "search": "Search:" },
+                "scrollX": true
+            });
+        });
+    </script>
+}
 
 <!--Script -->
 <script>
@@ -390,9 +939,10 @@
         const startDateInput = document.getElementById("startDate");
         const endDateInput = document.getElementById("endDate");
 
-        function setMinEndDate() {
+        function adjustEndDate() {
             if (startDateInput.value) {
-                endDateInput.min = startDateInput.value;
+                endDateInput.min = startDateInput.value; // end >= start
+                // Keep same day selection allowed
                 if (endDateInput.value && endDateInput.value < startDateInput.value) {
                     endDateInput.value = startDateInput.value;
                 }
@@ -401,20 +951,21 @@
             }
         }
 
-        startDateInput.addEventListener("change", setMinEndDate);
+        startDateInput.addEventListener("change", adjustEndDate);
+        endDateInput.addEventListener("change", adjustEndDate);
 
-        // Trigger on load in case of existing value
-        setMinEndDate();
+        adjustEndDate(); // initialize on load
     });
+
 </script>
 
-<!--Script for doorstatus dates-->
+
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const startDate1 = document.getElementById("startDate2");
-        const endDate1 = document.getElementById("endDate2");
+        const startDate1 = document.querySelector('input[name="startDate1"]');
+        const endDate1 = document.querySelector('input[name="endDate1"]');
 
-        function setMinEndDate2() {
+        function adjustEndDate1() {
             if (startDate1.value) {
                 endDate1.min = startDate1.value;
                 if (endDate1.value && endDate1.value < startDate1.value) {
@@ -425,9 +976,35 @@
             }
         }
 
-        startDate1.addEventListener("change", setMinEndDate2);
+        startDate1.addEventListener("change", adjustEndDate1);
+        endDate1.addEventListener("change", adjustEndDate1);
 
-        // Trigger on page load
-        setMinEndDate2();
+        adjustEndDate1(); // initialize on load
     });
 </script>
+
+
+<!--Script for doorstatus dates-->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const startDate2 = document.querySelector('input[name="startDate2"]');
+        const endDate2 = document.querySelector('input[name="endDate2"]');
+
+        function adjustEndDate2() {
+            if (startDate2.value) {
+                endDate2.min = startDate2.value;
+                if (endDate2.value && endDate2.value < startDate2.value) {
+                    endDate2.value = startDate2.value;
+                }
+            } else {
+                endDate2.removeAttribute("min");
+            }
+        }
+
+        startDate2.addEventListener("change", adjustEndDate2);
+        endDate2.addEventListener("change", adjustEndDate2);
+
+        adjustEndDate2(); // initialize on load
+    });
+</script>
+

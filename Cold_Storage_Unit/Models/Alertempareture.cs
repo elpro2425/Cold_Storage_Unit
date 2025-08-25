@@ -50,5 +50,4 @@ namespace Cold_Storage_Unit.Models
         public string Severity { get; set; }               // e.g. High
         public string Remarks { get; set; }                // e.g. Risk of mold, spoilage
     }
-
 }

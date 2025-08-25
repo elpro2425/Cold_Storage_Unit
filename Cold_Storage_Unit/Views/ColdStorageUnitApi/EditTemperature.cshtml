@@ -22,7 +22,7 @@
 <!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 <div class="container my-4">
-    <h2 class="mb-4">Temperature Settings</h2>
+    <h2 class="mb-4">Sendors Settings</h2>
     <!-- Filter Form -->
     <form method="get" action="@Url.Action("EditTemperature", "ColdStorageUnitApi")" class="row g-3 align-items-center mb-4">
         <div class="col-md-4">
@@ -48,7 +48,7 @@
     <!-- Data Table -->
     <div class="table-responsive">
         <table class="table table-bordered table-hover align-middle text-center" id="settingsTable">
-            <thead class="table-light">
+            <thead class="table">
                 <tr>
                     <th>Unit Name</th>
                     <th>Category</th>
@@ -71,7 +71,7 @@
                             <td>@item.message_display</td>
                             <td>@(item.enabled ? "Yes" : "No")</td>
                             <td>
-                                <button class="btn btn-sm btn-warning me-2" onclick="openEditModal('@item.UnitName', '@item.Category')">Edit</button>
+                                <button class="btn btn-sm btn-warning me-2" onclick="openEditModal(@item.Id)">Edit</button>
 
                                 @using (Html.BeginForm("DeleteTemperature", "ColdStorageUnitApi", FormMethod.Post, new { onsubmit = "return confirm('Are you sure you want to delete this record?');", style = "display:inline;" }))
                                 {
@@ -109,121 +109,125 @@
                         @Html.AntiForgeryToken()
                         @Html.HiddenFor(m => m.Id)
 
-                        <div class="row g-3">
-                            <!-- Unit Name -->
-                            <div class="col-md-6">
-                                <label class="form-label">Unit Name</label>
-                                @if (Model.Id > 0)
-                                {
-                                    @Html.DropDownListFor(m => m.UnitName, (SelectList)ViewBag.UnitNames, new { @class = "form-select", @disabled = "disabled", @id = "UnitName" })
-                                    @Html.HiddenFor(m => m.UnitName)
-                                }
-                                else
-                                {
-                                    var staticUnits = new List<SelectListItem>
-                                                                                                    {
-            new SelectListItem { Text = "Unit 1", Value = "Unit 1" },
-            new SelectListItem { Text = "Unit 2", Value = "Unit 2" }
-        };
+                    <div class="row g-3">
+                        <!-- Unit Name -->
+                        <div class="col-md-6">
+                            <label class="form-label">Unit Name</label>
+                            @if (Model.Id > 0)
+                            {
+                                @Html.DropDownListFor(m => m.UnitName, (SelectList)ViewBag.UnitNames, new { @class = "form-select", @disabled = "disabled", @id = "UnitName" })
+                                @Html.HiddenFor(m => m.UnitName)
+                            }
+                            else
+                            {
+                                var staticUnits = new List<SelectListItem>
+                                                                                                                            {
+                                    new SelectListItem { Text = "Unit 1", Value = "Unit 1" },
+                                    new SelectListItem { Text = "Unit 2", Value = "Unit 2" }
+                                };
 
-                        @Html.DropDownListFor(m => m.UnitName, staticUnits, "Select Unit", new { @class = "form-select", @id = "UnitName", required = "required" })
-                    }
-                                @Html.ValidationMessageFor(m => m.UnitName, "", new { @class = "text-danger" })
-                            </div>
+                                @Html.DropDownListFor(m => m.UnitName, staticUnits, "Select Unit", new { @class = "form-select", @id = "UnitName", required = "required" })
+                            }
+                            @Html.ValidationMessageFor(m => m.UnitName, "", new { @class = "text-danger" })
+                        </div>
 
 
-                            <!-- Category -->
-                            <div class="col-md-6">
-                                <label class="form-label">Category</label>
+                        <!-- Category -->
+                        <div class="col-md-6">
+                            <label class="form-label">Category</label>
 
-                                @if (Model.Id > 0)
-                                {
-                                    // Edit mode: keep it disabled and pre-selected from DB
-                                    var categoryAttributes = new Dictionary<string, object>
-                                                                                                    {
+                            @if (Model.Id > 0)
+                            {
+                                // Edit mode: keep it disabled and pre-selected from DB
+                                var categoryAttributes = new Dictionary<string, object>
+                                                                                                                            {
                                     { "class", "form-select" },
                                     { "disabled", "disabled" },
                                     { "id", "Category" }
                                 };
-                                    @Html.DropDownListFor(m => m.Category, (SelectList)ViewBag.Categories, "Select Category", categoryAttributes)
-                                    @Html.HiddenFor(m => m.Category)
-                                }
-                                else
-                                {
-                                    // Add New mode: use static hardcoded categories
-                                    var staticCategories = new List<SelectListItem>
-                                                                                    {
-                    new SelectListItem { Text = "CO2", Value = "CO2" },
-                    new SelectListItem { Text = "Humidity", Value = "Humidity" },
-                    new SelectListItem { Text = "Temperature", Value = "Temperature" },
-                    new SelectListItem { Text = "Ethylene", Value = "Ethylene" },
-                    new SelectListItem { Text = "Fan", Value = "Fan" },
-                    new SelectListItem { Text = "Compressor", Value = "Compressor" },
-                    new SelectListItem { Text = "Sensor", Value = "Sensor" },
-                    new SelectListItem { Text = "Data", Value = "Data" },
-                    new SelectListItem { Text = "Door", Value = "Door" }
-                };
+                                @Html.DropDownListFor(m => m.Category, (SelectList)ViewBag.Categories, "Select Category", categoryAttributes)
+                                @Html.HiddenFor(m => m.Category)
+                            }
+                            else
+                            {
+                                // Add New mode: use static hardcoded categories
+                                var staticCategories = new List<SelectListItem>
+                                                         {
+                                    new SelectListItem { Text = "CO2", Value = "CO2" },
+                                    new SelectListItem { Text = "Humidity", Value = "Humidity" },
+                                    new SelectListItem { Text = "Temperature", Value = "Temperature" },
+                                    new SelectListItem { Text = "Ethylene", Value = "Ethylene" },
+                                    new SelectListItem { Text = "Fan", Value = "Fan" },
+                                    new SelectListItem { Text = "Door", Value = "Door" }
+                                };
 
-                                    @Html.DropDownListFor(m => m.Category, staticCategories, "Select Category", new { @class = "form-select", @id = "Category" })
-                                }
-                            </div>
-                            <!-- Threshold -->
-                            <div class="col-md-6">
-                                <label class="form-label">Threshold</label>
-                                @Html.TextBoxFor(m => m.threshold, new { @class = "form-control", type = "number", step = "any", required = "required" })
-                                @Html.ValidationMessageFor(m => m.threshold, "", new { @class = "text-danger" })
-                            </div>
-
-                            <!-- Enabled -->
-                            <div class="col-md-6 form-check" style="padding-top: 30px;">
-                                @Html.CheckBoxFor(m => m.enabled, new { @class = "form-check-input", id = "enabledCheck" })
-                                <label class="form-check-label" for="enabledCheck">Enabled</label>
-                            </div>
-
-                            <!-- Condition Trigger -->
-                            <div class="col-md-6">
-                                <label class="form-label">Condition Trigger</label>
-                                @Html.DropDownListFor(m => m.Condition_Trigger,
-                                    new SelectList(defs, "ConditionTrigger", "ConditionTrigger", Model.Condition_Trigger),
-                                    "Select Condition",
-                                    new { @class = "form-select", required = "required", @id = "Condition_Trigger" })
-                                @Html.ValidationMessageFor(m => m.Condition_Trigger, "", new { @class = "text-danger" })
-                            </div>
-
-                            <!-- Message Display -->
-                            <div class="col-md-6">
-                                <label class="form-label">Message Display</label>
-                                @Html.DropDownListFor(m => m.message_display,
-                                    new SelectList(defs, "MessageDisplay", "MessageDisplay", Model.message_display),
-                                    "Select Message",
-                                    new { @class = "form-select", @id = "message_display" })
-                            </div>
-
-                            <!-- Severity (mapped to enabled_sensitivity) -->
-                            <div class="col-md-6">
-                                <label class="form-label">Severity</label>
-                                @Html.DropDownListFor(m => m.enabled_sensitivity,
-       (IEnumerable<SelectListItem>)ViewBag.Severities,
-       "Select Severity",
-       new { @class = "form-select", required = "required" })
-
-                            </div>
-
-                            <!-- Remarks -->
-                            <div class="col-md-6">
-                                <label class="form-label">Remarks</label>
-                                @Html.DropDownListFor(m => m.Remarks,
-                                    new SelectList(defs, "Remarks", "Remarks", Model.Remarks),
-                                    "Select Remarks",
-                                    new { @class = "form-select", @id = "Remarks" })
-                            </div>
-
-                            <!-- Time In Minutes -->
-                            <div class="col-md-6">
-                                <label class="form-label">Time In Minutes</label>
-                                @Html.TextBoxFor(m => m.TimeInMinutesFormatted, new { @class = "form-control", type = "time", step = "1" })
-                            </div>
+                                @Html.DropDownListFor(m => m.Category, staticCategories, "Select Category", new { @class = "form-select", @id = "Category" })
+                            }
                         </div>
+                        <!-- Threshold -->
+                        <div class="col-md-6">
+                            <label class="form-label">Threshold</label>
+                            @Html.TextBoxFor(m => m.threshold, new { @class = "form-control", type = "number", step = "any", required = "required" })
+                            @Html.ValidationMessageFor(m => m.threshold, "", new { @class = "text-danger" })
+                        </div>
+
+                        <!-- Enabled -->
+                        <div class="col-md-6 form-check" style="padding-top: 30px;">
+                            @Html.CheckBoxFor(m => m.enabled, new { @class = "form-check-input", id = "enabledCheck" })
+                            <label class="form-check-label" for="enabledCheck">Enabled</label>
+                        </div>
+
+                        <!-- Condition Trigger -->
+                        <div class="col-md-6">
+                            <label class="form-label">Condition Trigger</label>
+                            @Html.TextBoxFor(
+m => m.Condition_Trigger,
+new { @class = "form-control", @readonly = "readonly", @id = "Condition_Trigger" }
+)
+
+                            @Html.ValidationMessageFor(m => m.Condition_Trigger, "", new { @class = "text-danger" })
+                        </div>
+
+                        <!-- Message Display -->
+                        <div class="col-md-6">
+                            <label class="form-label">Message Display</label>
+                            @Html.DropDownListFor(
+  m => m.message_display,
+  new SelectList(defs, "MessageDisplay", "MessageDisplay"),
+  "Select Message",
+  new { @class = "form-select", @id = "message_display", @data_selected = Model.message_display }
+)
+
+                        </div>
+
+                        <!-- Severity (mapped to enabled_sensitivity) -->
+                        <div class="col-md-6">
+                            <label class="form-label">Severity</label>
+                            @Html.DropDownListFor(m => m.enabled_sensitivity,
+   (IEnumerable<SelectListItem>)ViewBag.Severities,
+   "Select Severity",
+   new { @class = "form-select", required = "required" })
+
+                        </div>
+
+                        <!-- Remarks -->
+                        <div class="col-md-6">
+                            <label class="form-label">Remarks</label>
+                            @Html.DropDownListFor(
+     m => m.Remarks,
+     new SelectList(Enumerable.Empty<SelectListItem>()),
+     "Select Remarks",
+     new { @class = "form-select", @id = "Remarks", @data_selected = Model.Remarks }
+)
+
+                        </div>
+
+                        <!-- Time In Minutes -->
+                        <div class="col-md-6">
+                            <label class="form-label">Time In Minutes</label>
+                            @Html.TextBoxFor(m => m.TimeInMinutesFormatted, new { @class = "form-control", type = "time", step = "1" })
+                        </div>
+                    </div>
 
                         <div class="mt-4 text-end">
                             <button type="submit" class="btn btn-primary">Save</button>
@@ -247,58 +251,54 @@
             "CO2": ["A1H", "A1L"],
             "Ethylene": ["A4H", "A4L"],
             "Fan": ["A6H", "A6L"],
-            "Compressor": ["A8"],
-            "Sensor": ["A9"],
-            "Data": ["A10"],
             "Door": ["A5H"]
         };
 
         function filterAlertFieldsByCategory(category) {
+            const selCondition = document.getElementById("Condition_Trigger")?.dataset.selected || "";
+            const selMessage = document.getElementById("message_display")?.dataset.selected || "";
+            const selRemarks = document.getElementById("Remarks")?.dataset.selected || "";
+
             const alertCodes = categoryAlertMap[category] || [];
             const filteredDefs = alertDefinitions.filter(def => alertCodes.includes(def.AlertName));
 
-            const populateDropdown = (elementId, key) => {
-                const dropdown = document.getElementById(elementId);
-                if (!dropdown) return;
+            function populate(id, key, selectedValue) {
+                const el = document.getElementById(id);
+                if (!el) return;
 
-                dropdown.innerHTML = "<option value=''>Select</option>";
+                el.innerHTML = "<option value=''>Select</option>";
+                [...new Set(filteredDefs.map(def => def[key]))]
+                    .forEach(val => {
+                        const opt = document.createElement("option");
+                        opt.value = val;
+                        opt.text = val;
+                        if (val === selectedValue) opt.selected = true;
+                        el.appendChild(opt);
+                    });
+            }
 
-                const uniqueValues = [...new Set(filteredDefs.map(def => def[key]))];
-                uniqueValues.forEach(val => {
-                    const option = document.createElement("option");
-                    option.value = val;
-                    option.text = val;
-                    dropdown.appendChild(option);
-                });
-            };
-
-            populateDropdown("Condition_Trigger", "ConditionTrigger");
-            populateDropdown("message_display", "MessageDisplay");
-            populateDropdown("Remarks", "Remarks");
+            populate("Condition_Trigger", "ConditionTrigger", selCondition);
+            populate("message_display", "MessageDisplay", selMessage);
+            populate("Remarks", "Remarks", selRemarks);
         }
 
         function updateConditionTriggerByMessage() {
             const messageSelect = document.getElementById("message_display");
-            const conditionTriggerSelect = document.getElementById("Condition_Trigger");
+            const conditionTriggerInput = document.getElementById("Condition_Trigger");
             const thresholdInput = document.querySelector("[name='threshold']");
 
-            if (!messageSelect || !conditionTriggerSelect || !thresholdInput) return;
+            if (!messageSelect || !conditionTriggerInput || !thresholdInput) return;
 
             const selectedMessage = messageSelect.value;
             const enteredThreshold = thresholdInput.value.trim();
 
             const def = alertDefinitions.find(d => d.MessageDisplay === selectedMessage);
 
-            conditionTriggerSelect.innerHTML = ""; // Clear existing options
-
             if (def && enteredThreshold) {
-                // Replace numeric part of the original condition with entered threshold
                 const customCondition = def.ConditionTrigger.replace(/([\d.]+)(\s*[a-zA-Z%°]*)/, `${enteredThreshold}$2`);
-
-                const option = document.createElement("option");
-                option.value = customCondition;
-                option.text = customCondition;
-                conditionTriggerSelect.appendChild(option);
+                conditionTriggerInput.value = customCondition;
+            } else {
+                conditionTriggerInput.value = "";
             }
         }
 
@@ -310,10 +310,12 @@
             if (categoryDropdown) {
                 categoryDropdown.addEventListener("change", function () {
                     filterAlertFieldsByCategory(this.value);
+                    fetchRemarksByCategory(this.value); // ✅ Attach this here
                 });
 
-                // Trigger once on load
+                // Trigger once on load (for both fields)
                 filterAlertFieldsByCategory(categoryDropdown.value);
+                fetchRemarksByCategory(categoryDropdown.value); // ✅ Also trigger here
             }
 
             if (messageDropdown) {
@@ -324,33 +326,39 @@
                 thresholdInput.addEventListener("input", updateConditionTriggerByMessage);
             }
 
-            // Trigger once on load
-            updateConditionTriggerByMessage();
+            updateConditionTriggerByMessage(); // Trigger once on load
         }
 
-        function openEditModal(unitName, category) {
-            fetch(`@Url.Action("EditTemperature", "ColdStorageUnitApi")?unitName=${unitName}&category=${category}`)
-                .then(response => response.text())
-                .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const modalContent = doc.querySelector('#settingsModal .modal-content');
 
-                    if (modalContent) {
-                        document.querySelector('#settingsModal .modal-content').innerHTML = modalContent.innerHTML;
+      function openEditModal(id) {
+    fetch(`@Url.Action("EditTemperature", "ColdStorageUnitApi")?id=${id}`)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const modalContent = doc.querySelector('#settingsModal .modal-content');
 
-                        const editModal = new bootstrap.Modal(document.getElementById('settingsModal'));
-                        editModal.show();
+            if (modalContent) {
+                document.querySelector('#settingsModal .modal-content').innerHTML = modalContent.innerHTML;
+                const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+                modal.show();
+                setTimeout(() => {
+                    attachModalEventHandlers();
 
-                        // Reattach events after dynamic content load
-                        setTimeout(attachModalEventHandlers, 200);
+                    // Manually fetch remarks for edit form because category dropdown is disabled
+                    const categoryDropdown = document.getElementById('Category');
+                    if (categoryDropdown) {
+                        fetchRemarksByCategory(categoryDropdown.value);
                     }
-                })
-                .catch(error => {
-                    console.error('Error loading modal:', error);
-                    alert('Failed to load edit form.');
-                });
-        }
+                }, 200);
+            }
+        })
+        .catch(error => {
+            console.error('Edit modal load failed', error);
+            alert('Could not load edit form.');
+        });
+}
+
 
         document.addEventListener("DOMContentLoaded", function () {
             attachModalEventHandlers();
@@ -365,6 +373,67 @@
                 });
             }
         });
+
+        // Function to fetch remarks based on the selected category
+function fetchRemarksByCategory(category) {
+    const remarksDropdown = document.getElementById('Remarks');
+    const selectedRemark = remarksDropdown?.dataset.selected || "";
+
+    remarksDropdown.innerHTML = "<option value=''>Select Remarks</option>"; // Reset remarks dropdown
+
+    if (category) {
+        fetch(`@Url.Action("GetRemarksByCategory", "ColdStorageUnitApi")?category=${category}`)
+            .then(response => response.json())
+            .then(remarks => {
+                if (remarks.length > 0) {
+                    remarks.forEach(function (remark) {
+                        const option = document.createElement('option');
+                        option.value = remark.Id;
+                        option.text = remark.RemarkText;
+
+                        if (remark.Id == selectedRemark) {
+                            option.selected = true;
+                        }
+
+                        remarksDropdown.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.text = 'No remarks available for this category';
+                    remarksDropdown.appendChild(option);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching remarks:', error);
+                const option = document.createElement('option');
+                option.value = '';
+                option.text = 'Error loading remarks';
+                remarksDropdown.appendChild(option);
+            });
+    }
+}
+
+
+// Attach event to category dropdown to load remarks when category is selected
+      
+        document.addEventListener('DOMContentLoaded', function () {
+            const categoryDropdown = document.getElementById('Category');
+            if (categoryDropdown) {
+                fetchRemarksByCategory(categoryDropdown.value);
+            }
+        });
+
+
+// Trigger remarks loading when the page loads if a category is pre-selected
+        document.addEventListener('DOMContentLoaded', function () {
+            const categoryDropdown = document.getElementById('Category');
+            if (categoryDropdown) {
+                fetchRemarksByCategory(categoryDropdown.value);
+            }
+        });
+
+
     </script>
 }
 

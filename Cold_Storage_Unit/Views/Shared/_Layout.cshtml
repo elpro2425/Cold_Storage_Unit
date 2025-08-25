@@ -269,7 +269,7 @@
                         <li class="nav-item">
                             <a class="nav-link fw-bold d-flex justify-content-between align-items-center"
                                data-bs-toggle="collapse" href="#settingsSubmenu" role="button" aria-expanded="false" aria-controls="settingsSubmenu">
-                                <span><i class="bi bi-gear"></i> Settings</span>
+                                <span class="d-flex align-items-center gap-3"><i class="bi bi-gear"></i> Settings</span>
                                 <i class="bi bi-chevron-down"></i>
                             </a>
                             <div class="collapse" id="settingsSubmenu">
@@ -277,13 +277,19 @@
                                     <li class="nav-item">
                                         <a class="nav-link @IsActive("ColdStorageUnitApi", "EditTemperature")"
                                            href="@Url.Action("EditTemperature", "ColdStorageUnitApi")">
-                                            Aler Setting
+                                            Sensors Setting
                                         </a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link @IsActive("Account", "Settings")"
                                            href="@Url.Action("Settings", "Account")">
                                             Edit Profile
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link @IsActive("AddRemark", "Index")"
+                                           href="@Url.Action("Index", "AddRemark")">
+                                            Item Master
                                         </a>
                                     </li>
                                 </ul>
@@ -337,9 +343,13 @@
                             <ul class="nav flex-column">
 
                                 <li class="nav-item">
-                                    <a class="nav-link fw-bold d-flex justify-content-between align-items-center"
+                                    <a class="nav-link fw-bold d-flex justify-content-between align-items-center gap-3"
                                        data-bs-toggle="collapse" href="#settingsSubmenu" role="button" aria-expanded="false" aria-controls="settingsSubmenu">
-                                        <span><i class="bi bi-gear fs-5"></i> Settings</span>
+                                        <span class="d-flex align-items-center gap-3">
+                                            <i class="bi bi-gear fs-5"></i>
+                                            Settings
+                                        </span>
+
                                         <i class="bi bi-chevron-down fs-5"></i>
                                     </a>
 
@@ -348,13 +358,19 @@
                                             <li class="nav-item">
                                                 <a class="nav-link @IsActive("ColdStorageUnitApi", "EditTemperature")"
                                                    href="@Url.Action("EditTemperature", "ColdStorageUnitApi")">
-                                                    Aler Setting
+                                                    Sensors Setting
                                                 </a>
                                             </li>
                                             <li class="nav-item">
                                                 <a class="nav-link @IsActive("Account", "Settings")"
                                                    href="@Url.Action("Settings", "Account")">
                                                     Edit Profile
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a class="nav-link @IsActive("AddRemark", "Index")"
+                                                   href="@Url.Action("Index", "AddRemark")">
+                                                    Item Master
                                                 </a>
                                             </li>
                                         </ul>
